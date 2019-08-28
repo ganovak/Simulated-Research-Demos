@@ -1,0 +1,31 @@
+occup,indust
+Accountant,Banking
+Actor,Entertainment
+Author,Entertainment
+Baker,Food/Beverage
+Butcher,Food/Beverage
+Construction Worker,Construction
+Cook,Food/Beverage
+Doctor,Medical
+Driver,Transportation
+Engineer,Engineering
+Factory Worker,Manufacturing
+Farmer,Agriculture
+Fireman,Emergency Services
+Fisherman,Food/Beverage
+Journalist,Entertainment
+Judge,Legal
+Lawyer,Legal
+Librarian,Academia
+Mechanic,Repair
+Nurse,Medical
+Pharmacist,Medical
+Pilot,Transportation
+Politician,Government
+Policeman,Emergency Services
+Postman,Government
+Scientist,Academia
+Soldier,Military
+Teacher,Academia
+Veterinarian,Medical
+Waiter,Food/Beverage

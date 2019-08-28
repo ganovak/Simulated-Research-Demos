@@ -1,0 +1,496 @@
+---
+title: "Opioid-Related Death in Massachusetts"
+subtitle: "Simulated Demo"
+author: "Gabby Novak"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+setwd("D:/Simulated-Research-Demos")
+```
+
+```{r}
+library(tidyverse)
+```
+
+# Data Set Unification
+
+This project made use of publicly available death records of individuals who died in Massachusetts, USA between 2000 and 2017 with an opioid-related ICD10 code assigned to them as a cause of death. The data source presented several challenges, not least among them, errors due to manual entry of information. However, the greatest hurdle were changes to data format in mid-2014. Prior to that 2014 format change, 77 variables were available. After the format change, a staggering 843 were available. While the vast majority of the earlier variables were repeated in the newer format, both variable names and coding structures were updated. In order to fit any sort of temporal model, we needed a unified data set. Additionally, while we were interested in several individual-level covariates, much of these data were irrelevant to us. I developed the following functions as a mechanism to extract specific information from the raw vitals, recode it, and populate a data frame much more suited to the project's needs. 
+
+```{r}
+vital.00.14<-function(dataset){
+  temp<-list()
+  state<-c("ALABAMA","ALASKA","ARIZONA","ARKANSAS","CALIFORNIA","COLORADO",
+           "CONNECTICUT","DELAWARE","FLORIDA","GEORGIA","HAWAII","IDAHO",
+           "ILLINOIS","INDIANA","IOWA","KANSAS","KENTUCKY","LOUISIANA",
+           "MAINE","MARYLAND","MASSACHUSETTS","MICHIGAN","MINNESOTA",
+           "MISSISSIPPI","MISSOURI","MONTANA","NEBRASKA","NEVADA",
+           "NEW HAMPSHIRE","NEW JERSEY","NEW MEXICO","NEW YORK",
+           "NORTH CAROLINA","NORTH DAKOTA","OHIO","OKLAHOMA","OREGON",
+           "PENNSYLVANIA","RHODE ISLAND","SOUTH CAROLINA","SOUTH DAKOTA",
+           "TENNESSEE","TEXAS","UTAH","VERMONT","VIRGINIA","WASHINGTON",
+           "WASHINGTON DC","WEST VIRGINIA","WISCONSIN","WYOMING")
+  abbr<-c("AL","AK","AZ","AR","CA","CO","CT","DC","DE","FL","GA","HI","ID",
+          "IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO",
+          "MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI",
+          "SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY")
+  # batch
+  temp$batch<-1
+  for(j in 1:nrow(dataset)){
+    # sfnum
+    temp$sfnum[j]<-unlist(dataset[j,"CERT"])
+    # ddate
+    temp$ddate[j]<-paste0(str_sub(dataset[j,"DOD"],1,4),"-",
+                                  str_sub(dataset[j,"DOD"],5,6),"-",
+                                  str_sub(dataset[j,"DOD"],7,8))
+    # male
+    if(dataset[j,"SEX"]=="1"){temp$male[j]<-1}
+    if(dataset[j,"SEX"]=="2"){temp$male[j]<-0}
+    # age
+    if(str_sub(dataset[j,"AGE_AT_DEATH"],1,1)==0|
+       str_sub(dataset[j,"AGE_AT_DEATH"],1,1)==1)
+    {temp$age[j]<-as.numeric(str_sub(dataset[j,"AGE_AT_DEATH"],-2,-1))}
+    else{if(str_sub(dataset[j,"AGE_AT_DEATH"],1,1)==2|
+            str_sub(dataset[j,"AGE_AT_DEATH"],1,1)==4|
+            str_sub(dataset[j,"AGE_AT_DEATH"],1,1)==5|
+            str_sub(dataset[j,"AGE_AT_DEATH"],1,1)==6)
+      {temp$age[j]<-0}else{if(str_sub(dataset[j,"AGE_AT_DEATH"],1,1)==9){temp$age[j]<-NA}}}
+    # race
+    if(!(dataset[j,"DETHNIC_HISPANIC"]=="0"|dataset[j,"DETHNIC_HISPANIC"]=="9"))
+      {temp$race[j]<-3}
+      else{if(dataset[j,"RACE"]=="01"){temp$race[j]<-1}
+           if(dataset[j,"RACE"]=="02"){temp$race[j]<-2}
+           if(dataset[j,"RACE"]=="03"){temp$race[j]<-5}
+           if(dataset[j,"RACE"]=="04"|
+              dataset[j,"RACE"]=="05"|
+              dataset[j,"RACE"]=="06"|
+              dataset[j,"RACE"]=="07"|
+              dataset[j,"RACE"]=="08"|
+              dataset[j,"RACE"]=="09"|
+              dataset[j,"RACE"]=="10"|
+              dataset[j,"RACE"]=="11"|
+              dataset[j,"RACE"]=="12"){temp$race[j]<-4}
+           if(dataset[j,"RACE"]=="13"|
+              dataset[j,"RACE"]=="14"){temp$race[j]<-7}
+           if(dataset[j,"RACE"]=="99"){temp$race[j]<-NA}}
+    # occup
+    temp$occup[j]<-unlist(dataset[j,"OCCUP"])
+    # indust
+    temp$indust[j]<-unlist(dataset[j,"INDUST"])
+    # edu
+    if(as.numeric(dataset[j,"DEDUC"])<=11){temp$edu[j]<-1}
+      else{if(as.numeric(dataset[j,"DEDUC"])<=13){temp$edu[j]<-2}
+        else{if(as.numeric(dataset[j,"DEDUC"])<=16){temp$edu[j]<-3}
+          else{if(dataset[j,"DEDUC"]=="99"){temp$edu[j]<-NA}
+            else{if(as.numeric(dataset[j,"DEDUC"])>16){temp$edu[j]<-4}}}}}
+    # immig
+    if(dataset[j,"NATIVITY"]=="99"){temp$immig[j]<-NA}
+      else{if(as.numeric(dataset[j,"NATIVITY"])>51){temp$immig[j]<-4}
+        else{temp$immig[j]<-5}}
+    # pimmig
+    ifelse(!dataset[j,"FATHER_BSTATE"]%in%state&
+           !dataset[j,"FATHER_BSTATE"]%in%abbr&
+           !dataset[j,"FATHER_BSTATE"]=="UNKNOWN",
+           yes=ifelse(!dataset[j,"MOTHER_BSTATE"]%in%state&
+                      !dataset[j,"MOTHER_BSTATE"]%in%abbr&
+                      !dataset[j,"MOTHER_BSTATE"]=="UNKNOWN",
+                      yes=temp$pimmig[j]<-2,
+                      no=temp$pimmig[j]<-1),
+           no=ifelse(!dataset[j,"MOTHER_BSTATE"]%in%state&
+                     !dataset[j,"MOTHER_BSTATE"]%in%abbr&
+                     !dataset[j,"MOTHER_BSTATE"]=="UNKNOWN",
+                     yes=temp$pimmig[j]<-1,
+                     no=ifelse((dataset[j,"FATHER_BSTATE"]%in%state|
+                         dataset[j,"FATHER_BSTATE"]%in%abbr)&
+                        (dataset[j,"MOTHER_BSTATE"]%in%state|
+                         dataset[j,"MOTHER_BSTATE"]%in%abbr),
+                        yes=temp$pimmig[j]<-0,
+                        no=temp$pimmig[j]<-NA)))
+    # marital
+    if(dataset[j,"MARITAL"]=="1"){temp$marital[j]<-5}
+    if(dataset[j,"MARITAL"]=="2"){temp$marital[j]<-1}
+    if(dataset[j,"MARITAL"]=="3"){temp$marital[j]<-3}
+    if(dataset[j,"MARITAL"]=="4"){temp$marital[j]<-4}
+    if(dataset[j,"MARITAL"]=="9"){temp$marital[j]<-NA}
+    # veteran
+    if(dataset[j,"VET_STAT"]==0){temp$veteran[j]<-0}
+    else{if(dataset[j,"VET_STAT"]==9){temp$veteran[j]<-NA}
+      else{temp$veteran[j]<-1}}
+    # preg
+    temp$preg[j]<-NA
+    # resadd
+    temp$resadd[j]<-str_remove_all(paste(dataset[j,"RES_ADDR_NUM"],
+                                           dataset[j,"RES_ADDR1"],
+                                           dataset[j,"RES_STREET_DESIG"])," NA")
+    # rescity
+    temp$rescity[j]<-unlist(dataset[j,"RES_CITY"])
+    # resstate
+    ifelse(is.na(dataset[j,"RES_CITY_CODE"]),
+           yes=temp$resstate[j]<-NA,
+           no=ifelse(as.numeric(dataset[j,"RES_CITY_CODE"])<=351,
+                     yes=temp$resstate[j]<-"MASSACHUSETTS",
+                     no=temp$resstate[j]<-"OUT OF STATE"))
+    # reszip
+    temp$reszip[j]<-unlist(dataset[j,"RES_ZIP"])
+    # resnat
+    temp$resnat[j]<-NA
+    # dplace
+    ifelse(dataset[j,"DPLACE"]==1,
+           yes=temp$dplace[j]<-1,
+           no=ifelse(dataset[j,"DPLACE"]==2,
+                     yes=temp$dplace[j]<-2,
+                     no=ifelse(dataset[j,"DPLACE"]==3,
+                               yes=temp$dplace[j]<-3,
+                               no=ifelse(dataset[j,"DPLACE"]==5,
+                                         yes=temp$dplace[j]<-6,
+                                         no=ifelse(dataset[j,"DPLACE"]==6,
+                                                   yes=temp$dplace[j]<-4,
+                                                   no=ifelse(dataset[j,"DPLACE"]==7,
+                                                             yes=temp$dplace[j]<-8,
+                                                             no=temp$dplace[j]<-NA))))))
+    # dfacilitynum
+    if(dataset[j,"FACCODE"]=="0000"|
+       dataset[j,"FACCODE"]=="0060"|
+       dataset[j,"FACCODE"]=="0070"|
+       dataset[j,"FACCODE"]=="0080"|
+       dataset[j,"FACCODE"]=="0090"|
+       dataset[j,"FACCODE"]=="9999"){temp$dfacilitynum[j]<-NA}
+    else{temp$dfacilitynum[j]<-unlist(dataset[j,"FACCODE"])}
+    # dadd
+    temp$ddad[j]<-NA
+    # dcity
+    temp$dcity[j]<-unlist(dataset[j,"DNAME_CITY"])
+    # dstate
+    ifelse(dataset[j,"DSTATEL"]=="MA",
+           yes=temp$dstate[j]<-"MASSACHUSETTS",
+           no=ifelse(dataset[j,"DSTATEL"]=="MASSACHUSETTS",
+                     yes=temp$dstate[j]<-"MASSACHUSETTS",
+                     no=temp$dstate[j]<-NA))
+    # dzip
+    temp$dzip[j]<-NA
+    # dnat
+    temp$dnat[j]<-"UNITED STATES"
+    # travel
+    ifelse(!is.na(dataset[j,"RES_CITY"])&!is.na(dataset[j,"DNAME_CITY"]),
+           yes=ifelse(dataset[j,"RES_CITY"]==dataset[j,"DNAME_CITY"],
+                      yes=temp$travel[j]<-0,
+                      no=temp$travel[j]<-1),
+           no=temp$travel[j]<-NA)
+    # All icd variables
+    y<-str_trim(str_split(str_replace_all(dataset[j,"TRX_REC_AXIS_CD"],"  "," ")," ",simplify=T),side="both")
+    x<-vector(mode="character")
+    l<-1
+    for(k in 1:length(y)){
+      if(str_length(y[k])>4){
+        if(str_length(y[k])<6)
+        {x[l]<-str_remove(y[k],".$")
+        l<-l+1}
+        else
+        {x[l]<-str_split(y[k],"0",simplify=T)[1]
+        l<-l+1
+        x[l]<-str_split(y[k],"0",simplify=T)[2]
+        l<-l+1}}
+      else
+      {x[l]<-y[k]
+      l<-l+1}}
+    # icd1
+    if(is.na(x[1])){temp$icd1[j]<-NA}
+    else{temp$icd1[j]<-x[1]}
+    # icd2
+    if(is.na(x[2])){temp$icd2[j]<-NA}
+    else{temp$icd2[j]<-x[2]}
+    # icd3
+    if(is.na(x[3])){temp$icd3[j]<-NA}
+    else{temp$icd3[j]<-x[3]}
+    # icd4
+    if(is.na(x[4])){temp$icd4[j]<-NA}
+    else{temp$icd4[j]<-x[4]}
+    # icd5
+    if(is.na(x[5])){temp$icd5[j]<-NA}
+    else{temp$icd5[j]<-x[5]}
+    # icd6
+    if(is.na(x[6])){temp$icd6[j]<-NA}
+    else{temp$icd6[j]<-x[6]}
+    # icd7
+    if(is.na(x[7])){temp$icd7[j]<-NA}
+    else{temp$icd7[j]<-x[7]}
+    # icd8
+    if(is.na(x[8])){temp$icd8[j]<-NA}
+    else{temp$icd8[j]<-x[8]}
+    # icd9
+    if(is.na(x[9])){temp$icd9[j]<-NA}
+    else{temp$icd9[j]<-x[9]}
+    # icd10
+    if(is.na(x[10])){temp$icd10[j]<-NA}
+    else{temp$icd10[j]<-x[10]}
+    # icd11
+    if(is.na(x[11])){temp$icd11[j]<-NA}
+    else{temp$icd11[j]<-x[11]}
+    # icd12
+    if(is.na(x[12])){temp$icd12[j]<-NA}
+    else{temp$icd12[j]<-x[12]}
+    # icd13
+    if(is.na(x[13])){temp$icd13[j]<-NA}
+    else{temp$icd13[j]<-x[13]}
+    #icd14
+    if(is.na(x[14])){temp$icd14[j]<-NA}
+    else{temp$icd14[j]<-x[14]}
+    # icd15
+    if(is.na(x[15])){temp$icd15[j]<-NA}
+    else{temp$icd15[j]<-x[15]}
+    #icd16
+    if(is.na(x[16])){temp$icd16[j]<-NA}
+    else{temp$icd16[j]<-x[16]}
+  }
+  return(as_tibble(temp))
+}
+vital.14.17<-function(dataset){
+  temp<-list()
+  # batch
+  temp$batch<-2
+  for(i in 1:nrow(dataset)){
+    # sfnum
+    temp$sfnum[i]<-unlist(dataset[i,"SFN_NUM"])
+    # ddate
+    temp$ddate[i]<-paste0(str_sub(dataset[i,"DOD_4_FD"],7,10),"-",
+                          str_sub(dataset[i,"DOD_4_FD"],1,2),"-",
+                          str_sub(dataset[i,"DOD_4_FD"],4,5))
+    # male
+    ifelse(dataset[i,"SEX"]=="M",
+           yes=temp$male[i]<-1,
+           no=ifelse(dataset[i,"SEX"]=="F",
+                     yes=temp$male[i]<-0,
+                     no=temp$male[i]<-NA))
+    # age
+    if(dataset[i,"AGETYPE"]==1)
+    {temp$age[i]<-unlist(dataset[i,"AGE1_CALC"])}
+    else{if(dataset[i,"AGETYPE"]==2|
+            dataset[i,"AGETYPE"]==3)
+    {temp$age[i]<-0}
+      else{if(dataset[i,"AGETYPE"]==8|
+              dataset[i,"AGETYPE"]==9)
+      {temp$age[i]<-NA}}}
+    # race
+    ifelse(str_count(paste0(dataset[i,"RACE1"],
+                            dataset[i,"RACE_AM_NATIVE"],
+                            dataset[i,"RACE_ASIAN"],
+                            dataset[i,"RACE_BLACK"],
+                            dataset[i,"DETHNIC4"]),"Y")>1,
+           yes=temp$race[i]<-6,
+           no=ifelse(dataset[i,"RACE_HISP_LAT_WHITE"]=="Y"|
+                     dataset[i,"RACE_HISP_LAT_BLACK"]=="Y"|
+                     dataset[i,"DETHNIC4"]=="Y",
+                     yes=temp$race[i]<-3,
+                     no=ifelse(dataset[i,"RACE1"]=="Y",
+                               yes=temp$race[i]<-1,
+                               no=ifelse(dataset[i,"RACE_BLACK"]=="Y",
+                                         yes=temp$race[i]<-2,
+                                         no=ifelse(dataset[i,"RACE_ASIAN"]=="Y",
+                                                   yes=temp$race[i]<-4,
+                                                   no=ifelse(dataset[i,"RACE_AM_NATIVE"]=="Y",
+                                                             yes=temp$race[i]<-5,
+                                                             no=ifelse(dataset[i,"RACE_UNK"]=="Y",
+                                                                       yes=temp$race[i]<-NA,
+                                                                       no=temp$race[i]<-7)))))))
+    # occup
+    temp$occup[i]<-unlist(dataset[i,"OCCUP"])
+    # indust
+    temp$indust[i]<-unlist(dataset[i,"INDUST"])
+    # edu
+    ifelse(dataset[i,"DEDUC"]==1|
+           dataset[i,"DEDUC"]==2,
+           yes=temp$edu[i]<-1,
+           no=ifelse(dataset[i,"DEDUC"]==3|
+                     dataset[i,"DEDUC"]==4|
+                     dataset[i,"DEDUC"]==5,
+                     yes=temp$edu[i]<-2,
+                     no=ifelse(dataset[i,"DEDUC"]==6|
+                               dataset[i,"DEDUC"]==7,
+                               yes=temp$edu[i]<-3,
+                               no=ifelse(dataset[i,"DEDUC"]==8|
+                                         dataset[i,"DEDUC"]==9,
+                                         yes=temp$edu[i]<-4,
+                                         no=ifelse(dataset[i,"DEDUC"]==12,
+                                                   yes=temp$edu[i]<-5,
+                                                   no=temp$edu[i]<-NA)))))
+    # immig
+    ifelse(dataset[i,"RES_COUNTRY"]=="UNITED STATES",
+           yes=ifelse(dataset[i,"BPLACE_CNT"]=="UNITED STATES",
+                      yes=temp$immig[i]<-0,
+                      no=temp$immig[i]<-1),
+           no=ifelse(dataset[i,"BPLACE_CNT"]=="UNITED STATES",
+                     yes=temp$immig[i]<-3,
+                     no=temp$immig[i]<-2))
+    # pimmig
+    ifelse(!(dataset[i,"FATHER_BCOUNTRY"]=="UNITED STATES"|
+           dataset[i,"FATHER_BCOUNTRY"]=="UNKNOWN"),
+           yes=ifelse(!(dataset[i,"MOTHER_BCOUNTRY"]=="UNITED STATES"|
+                      dataset[i,"MOTHER_BCOUNTRY"]=="UNKNOWN"),
+                      yes=temp$pimmig[i]<-2,
+                      no=temp$pimmig[i]<-1),
+           no=ifelse(!(dataset[i,"MOTHER_BCOUNTRY"]=="UNITED STATES"|
+                     dataset[i,"MOTHER_BCOUNTRY"]=="UNKNOWN"),
+                     yes=temp$pimmig[i]<-1,
+                     no=ifelse(dataset[i,"FATHER_BCOUNTRY"]=="UNITED STATES"&
+                               dataset[i,"MOTHER_BCOUNTRY"]=="UNITED STATES",
+                               yes=temp$pimmig[i]<-0,
+                               no=temp$pimmig[i]<-NA)))
+    # marital
+    ifelse(dataset[i,"MARITAL"]=="M"|
+           dataset[i,"MARITAL"]=="A",
+           yes=temp$marital[i]<-1,
+           no=ifelse(dataset[i,"MARITAL"]=="W",
+                     yes=temp$marital[i]<-3,
+                     no=ifelse(dataset[i,"MARITAL"]=="D",
+                               yes=temp$marital[i]<-4,
+                               no=ifelse(dataset[i,"MARITAL"]=="S",
+                                         yes=temp$marital[i]<-5,
+                                         no=temp$marital[i]<-NA))))
+    # veteran
+    ifelse(dataset[i,"ARMED"]=="Y",
+           yes=temp$veteran[i]<-1,
+           no=ifelse(dataset[i,"ARMED"]=="N",
+                     yes=temp$veteran[i]<-0,
+                     no=temp$veteran[i]<-NA))
+    # preg
+    if(is.na(dataset[i,"PREG"])){temp$preg[i]<-NA}
+    else{if(dataset[i,"PREG"]==1){temp$preg[i]<-0}
+    else{if(dataset[i,"PREG"]==2){temp$preg[i]<-1}
+         else{if(dataset[i,"PREG"]==3|dataset[i,"PREG"]==4){temp$preg[i]<-2}
+           else{temp$preg[i]<-NA}}}}
+  # resadd
+  temp$resadd[i]<-str_remove_all(paste(dataset[i,"RES_ADDR_NUM"],
+                                       dataset[i,"RES_STREET_PREFIX"],
+                                       dataset[i,"RES_ADDR1"],
+                                       dataset[i,"RES_STREET_DESIG"],
+                                       dataset[i,"RES_STREET_SUFFIX"],
+                                       dataset[i,"RES_ADDR2"]),
+                                 " NA")
+  # rescity
+  temp$rescity[i]<-unlist(dataset[i,"RES_CITY"])
+  # resstate
+  temp$resstate[i]<-unlist(dataset[i,"RES_STATE"])
+  # reszip
+  temp$reszip[i]<-unlist(dataset[i,"RES_ZIP"])
+  # resnat
+  temp$resnat[i]<-unlist(dataset[i,"RES_COUNTRY"])
+  # dplace
+  ifelse(dataset[i,"DPLACE"]==9,
+         yes=temp$dplace[i]<-NA,
+         no=temp$dplace[i]<-unlist(dataset[i,"DPLACE"]))
+  # dfacilitynum
+  temp$dfacilitynum[i]<-unlist(dataset[i,"DFACILITYL"])
+  # dadd
+  temp$ddad[i]<-str_remove_all(paste(dataset[i,"DADDR_NUM"],
+                                     dataset[i,"DSTREET_PREFIX"],
+                                     dataset[i,"DADDR1"],
+                                     dataset[i,"DSTREET_DESIG"],
+                                     dataset[i,"DSTREET_SUFFIX"],
+                                     dataset[i,"DADDR2"]),
+                               " NA")
+  # dcity
+  temp$dcity[i]<-unlist(dataset[i,"DNAME_CITY"])
+  # dstate
+  temp$dstate[i]<-unlist(dataset[i,"DSTATEL"])
+  # dzip
+  temp$dzip[i]<-str_extract(dataset[i,"DZIP9"],"^.{5}")
+  # dnat
+  temp$dnat[i]<-unlist(dataset[i,"DCOUNTRY"])
+  # travel
+  ifelse(!is.na(dataset[i,"DNAME_CITY"])&
+         !is.na(dataset[i,"RES_CITY"]),
+         yes=ifelse(!dataset[i,"DNAME_CITY"]==dataset[i,"RES_CITY"],
+                    yes=temp$travel[i]<-1,
+                    no=temp$travel[i]<-0),
+         no=temp$travel[i]<-NA)
+  # icd1
+  z<-str_trim(str_split(str_replace_all(dataset[i,"TRX_REC_AXIS_CD"],"  "," ")," ",simplify=T),side="both")
+  y<-vector(mode="character")
+  l<-1
+  for(k in 1:length(z)){
+    if(str_length(z[k])>4){
+      if(str_length(z[k])<6)
+      {y[l]<-str_remove(z[k],".$")
+      l<-l+1}
+      else
+      {y[l]<-str_split(z[k],"0",simplify=T)[1]
+      l<-l+1
+      y[l]<-str_split(z[k],"0",simplify=T)[2]
+      l<-l+1}}
+    else
+    {y[l]<-z[k]
+    l<-l+1}}
+  if(is.na(y[1])){temp$icd1[i]<-NA}
+  else{temp$icd1[i]<-y[1]}
+  # icd2
+  if(is.na(y[2])){temp$icd2[i]<-NA}
+  else{temp$icd2[i]<-y[2]}
+  # icd3
+  if(is.na(y[3])){temp$icd3[i]<-NA}
+  else{temp$icd3[i]<-y[3]}
+  # icd4
+  if(is.na(y[4])){temp$icd4[i]<-NA}
+  else{temp$icd4[i]<-y[4]}
+  # icd5
+  if(is.na(y[5])){temp$icd5[i]<-NA}
+  else{temp$icd5[i]<-y[5]}
+  # icd6
+  if(is.na(y[6])){temp$icd6[i]<-NA}
+  else{temp$icd6[i]<-y[6]}
+  # icd7
+  if(is.na(y[7])){temp$icd7[i]<-NA}
+  else{temp$icd7[i]<-y[7]}
+  # icd8
+  if(is.na(y[8])){temp$icd8[i]<-NA}
+  else{temp$icd8[i]<-y[8]}
+  # icd9
+  if(is.na(y[9])){temp$icd9[i]<-NA}
+  else{temp$icd9[i]<-y[9]}
+  # icd10
+  if(is.na(y[10])){temp$icd10[i]<-NA}
+  else{temp$icd10[i]<-y[10]}
+  # icd11
+  if(is.na(y[11])){temp$icd11[i]<-NA}
+  else{temp$icd11[i]<-y[11]}
+  # icd12
+  if(is.na(y[12])){temp$icd12[i]<-NA}
+  else{temp$icd12[i]<-y[12]}
+  # icd13
+  if(is.na(y[13])){temp$icd13[i]<-NA}
+  else{temp$icd13[i]<-y[13]}
+  #icd14
+  if(is.na(y[14])){temp$icd14[i]<-NA}
+  else{temp$icd14[i]<-y[14]}
+  # icd15
+  if(is.na(y[15])){temp$icd15[i]<-NA}
+  else{temp$icd15[i]<-y[15]}
+  #icd16
+  if(is.na(y[16])){temp$icd16[i]<-NA}
+  else{temp$icd16[i]<-y[16]}
+  }
+  return(as_tibble(temp))
+}
+```
+
+# Simulated Data
+
+The following data set mimics that created by the above functions. 
+
+```{r}
+# Example occupations and industries
+occups<-read_csv("Occups.csv")
+
+names(X0017IndOpDeath8_7)
+set.seed(8282019)
+(data<-data.frame(
+  batch=sample(c(1,2),500,replace=T),
+  sfnum=sample(0:999999,500,replace=F),
+  ddate=sample(seq(as.Date("2000-01-01"),as.Date("2017-12-31"),by="day"),500,replace=T),
+  male=sample(0:1,500,replace=T),
+  age=sample(0:100,500,repalce=T),
+  race=sample(1:7,500,replace=T))%>%
+  left_join(sample(occups[,1:2],500,replace=T)))
+
+```
+
