@@ -6,12 +6,17 @@ output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE,message=F,error=F)
 setwd("D:/Simulated-Research-Demos")
 ```
 
-```{r}
+```{r, results="hide"}
+#### Packages ####
 library(tidyverse)
+library(tigris)
+#### External Data ####
+shp<-zctas(year=2010,state="Massachusetts")
+plot(shp)
 ```
 
 # Data Set Unification
@@ -481,16 +486,51 @@ The following data set mimics that created by the above functions.
 # Example occupations and industries
 occups<-read_csv("Occups.csv")
 
-names(X0017IndOpDeath8_7)
+
 set.seed(8282019)
 (data<-data.frame(
   batch=sample(c(1,2),500,replace=T),
   sfnum=sample(0:999999,500,replace=F),
   ddate=sample(seq(as.Date("2000-01-01"),as.Date("2017-12-31"),by="day"),500,replace=T),
   male=sample(0:1,500,replace=T),
-  age=sample(0:100,500,repalce=T),
-  race=sample(1:7,500,replace=T))%>%
-  left_join(sample(occups[,1:2],500,replace=T)))
+  age=sample(0:100,500,replace=T),
+  race=sample(1:7,500,replace=T),
+  edu=sample(1:5,500,replace=T),
+  immig=sample(0:4,500,replace=T),
+  pimmig=sample(0:2,500,replace=T),
+  marital=sample(c(1,3:5),500,replace=T),
+  veteran=sample(0:1,500,replace=T),
+  preg=sample(0:2,500,replace=T),
+  resadd="1234 Circle Street",
+  rescity= "Anytown",
+  resstate= "Massachusetts",
+  reszip=sample(shp@data$ZCTA5CE10,500,replace=T),
+  resnat="United States",
+  dplace=sample(1:8,500,replace=T),
+  dfacilitynum="000000",
+  ddad="1234 Square Street",
+  dcity="Anytown",
+  dstate="Massachusetts",
+  dzip=sample(shp@data$ZCTA5CE10,500,replace=T),
+  dnat="United States",
+  travel=sample(0:1,500,replace=T),
+  icd1=paste0(sample(LETTERS,1),sample(01:99,1)),
+  icd2=paste0(sample(LETTERS,1),sample(01:99,1)),
+  icd3=paste0(sample(LETTERS,1),sample(01:99,1)),
+  icd4=paste0(sample(LETTERS,1),sample(01:99,1)),
+  icd5=paste0(sample(LETTERS,1),sample(01:99,1)),
+  icd6=paste0(sample(LETTERS,1),sample(01:99,1)),
+  icd7=paste0(sample(LETTERS,1),sample(01:99,1)),
+  icd8=paste0(sample(LETTERS,1),sample(01:99,1)),
+  icd9=paste0(sample(LETTERS,1),sample(01:99,1)),
+  icd10=paste0(sample(LETTERS,1),sample(01:99,1)),
+  icd11=paste0(sample(LETTERS,1),sample(01:99,1)),
+  icd12=paste0(sample(LETTERS,1),sample(01:99,1)),
+  icd13=paste0(sample(LETTERS,1),sample(01:99,1)),
+  icd14=paste0(sample(LETTERS,1),sample(01:99,1)),
+  icd15=paste0(sample(LETTERS,1),sample(01:99,1)),
+  icd16=paste0(sample(LETTERS,1),sample(01:99,1))))
+ # left_join(sample(occups[,1:2],500,replace=T)))
 
 ```
 
