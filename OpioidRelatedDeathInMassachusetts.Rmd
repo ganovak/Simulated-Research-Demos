@@ -14,9 +14,12 @@ setwd("D:/Simulated-Research-Demos")
 #### Packages ####
 library(tidyverse)
 library(tigris)
+
 #### External Data ####
+# base shp file for mapping
 shp<-zctas(year=2010,state="Massachusetts")
-plot(shp)
+# Example occupations and industries
+occups<-read_csv("Occups.csv")
 ```
 
 # Data Set Unification
@@ -483,18 +486,21 @@ vital.14.17<-function(dataset){
 The following data set mimics that created by the above functions. 
 
 ```{r}
-# Example occupations and industries
-occups<-read_csv("Occups.csv")
+
 
 
 set.seed(8282019)
-data<-data.frame(
+# data<-
+  
+data.frame(
   batch=sample(c(1,2),500,replace=T),
   sfnum=sample(0:999999,500,replace=F),
   ddate=sample(seq(as.Date("2000-01-01"),as.Date("2017-12-31"),by="day"),500,replace=T),
   male=sample(0:1,500,replace=T),
   age=sample(0:100,500,replace=T),
   race=sample(1:7,500,replace=T),
+  occup=sample(occups[[1]],500,replace=T),
+  indust=sample(occups[[2]],500,replace=T),
   edu=sample(1:5,500,replace=T),
   immig=sample(0:4,500,replace=T),
   pimmig=sample(0:2,500,replace=T),
@@ -514,23 +520,23 @@ data<-data.frame(
   dzip=sample(shp@data$ZCTA5CE10,500,replace=T),
   dnat="United States",
   travel=sample(0:1,500,replace=T),
-  icd1=paste0(sample(LETTERS,1),sample(01:99,1)),
-  icd2=paste0(sample(LETTERS,1),sample(01:99,1)),
-  icd3=paste0(sample(LETTERS,1),sample(01:99,1)),
-  icd4=paste0(sample(LETTERS,1),sample(01:99,1)),
-  icd5=paste0(sample(LETTERS,1),sample(01:99,1)),
-  icd6=paste0(sample(LETTERS,1),sample(01:99,1)),
-  icd7=paste0(sample(LETTERS,1),sample(01:99,1)),
-  icd8=paste0(sample(LETTERS,1),sample(01:99,1)),
-  icd9=paste0(sample(LETTERS,1),sample(01:99,1)),
-  icd10=paste0(sample(LETTERS,1),sample(01:99,1)),
-  icd11=paste0(sample(LETTERS,1),sample(01:99,1)),
-  icd12=paste0(sample(LETTERS,1),sample(01:99,1)),
-  icd13=paste0(sample(LETTERS,1),sample(01:99,1)),
-  icd14=paste0(sample(LETTERS,1),sample(01:99,1)),
-  icd15=paste0(sample(LETTERS,1),sample(01:99,1)),
-  icd16=paste0(sample(LETTERS,1),sample(01:99,1)))
- # left_join(sample(occups[,1:2],500,replace=T)))
+  icd1=paste0(sample(LETTERS,500,replace=T),sample(01:99,500,replace=T)),
+  icd2=paste0(sample(LETTERS,500,replace=T),sample(01:99,500,replace=T)),
+  icd3=paste0(sample(LETTERS,500,replace=T),sample(01:99,500,replace=T)),
+  icd4=paste0(sample(LETTERS,500,replace=T),sample(01:99,500,replace=T)),
+  icd5=paste0(sample(LETTERS,500,replace=T),sample(01:99,500,replace=T)),
+  icd6=paste0(sample(LETTERS,500,replace=T),sample(01:99,500,replace=T)),
+  icd7=paste0(sample(LETTERS,500,replace=T),sample(01:99,500,replace=T)),
+  icd8=paste0(sample(LETTERS,500,replace=T),sample(01:99,500,replace=T)),
+  icd9=paste0(sample(LETTERS,500,replace=T),sample(01:99,500,replace=T)),
+  icd10=paste0(sample(LETTERS,500,replace=T),sample(01:99,500,replace=T)),
+  icd11=paste0(sample(LETTERS,500,replace=T),sample(01:99,500,replace=T)),
+  icd12=paste0(sample(LETTERS,500,replace=T),sample(01:99,500,replace=T)),
+  icd13=paste0(sample(LETTERS,500,replace=T),sample(01:99,500,replace=T)),
+  icd14=paste0(sample(LETTERS,500,replace=T),sample(01:99,500,replace=T)),
+  icd15=paste0(sample(LETTERS,500,replace=T),sample(01:99,500,replace=T)),
+  icd16=paste0(sample(LETTERS,500,replace=T),sample(01:99,500,replace=T)))%>%
+  left_join(sample(occups,500,replace=T))
 
 ```
 
