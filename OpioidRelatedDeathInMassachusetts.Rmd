@@ -535,8 +535,6 @@ data.frame(
   icd13=paste0(sample(LETTERS,500,replace=T),sample(01:99,500,replace=T)),
   icd14=paste0(sample(LETTERS,500,replace=T),sample(01:99,500,replace=T)),
   icd15=paste0(sample(LETTERS,500,replace=T),sample(01:99,500,replace=T)),
-  icd16=paste0(sample(LETTERS,500,replace=T),sample(01:99,500,replace=T)))%>%
-  left_join(sample(occups,500,replace=T))
-
+  icd16=paste0(sample(LETTERS,500,replace=T),sample(01:99,500,replace=T)))
 ```
 
