@@ -488,7 +488,7 @@ occups<-read_csv("Occups.csv")
 
 
 set.seed(8282019)
-(data<-data.frame(
+data<-data.frame(
   batch=sample(c(1,2),500,replace=T),
   sfnum=sample(0:999999,500,replace=F),
   ddate=sample(seq(as.Date("2000-01-01"),as.Date("2017-12-31"),by="day"),500,replace=T),
@@ -529,7 +529,7 @@ set.seed(8282019)
   icd13=paste0(sample(LETTERS,1),sample(01:99,1)),
   icd14=paste0(sample(LETTERS,1),sample(01:99,1)),
   icd15=paste0(sample(LETTERS,1),sample(01:99,1)),
-  icd16=paste0(sample(LETTERS,1),sample(01:99,1))))
+  icd16=paste0(sample(LETTERS,1),sample(01:99,1)))
  # left_join(sample(occups[,1:2],500,replace=T)))
 
 ```
