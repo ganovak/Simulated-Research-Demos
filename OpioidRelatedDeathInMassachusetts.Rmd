@@ -6,14 +6,20 @@ output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE,message=F,error=F)
+knitr::opts_chunk$set(echo = TRUE,message=F,error=F,warning=F)
 setwd("D:/Simulated-Research-Demos")
 ```
 
 ```{r, results="hide"}
 #### Packages ####
 library(tidyverse)
+# Loads: ggplot2, dplyr, tidyr, readr, purrr, tibble, stringr, & forcats
 library(tigris)
+library(lubridate)
+library(knitr)
+library(kableExtra)
+library(gridExtra)
+library(extrafont)
 
 #### External Data ####
 # base shp file for mapping
@@ -24,9 +30,10 @@ occups<-read_csv("Occups.csv")
 
 # Data Set Unification
 
-This project made use of publicly available death records of individuals who died in Massachusetts, USA between 2000 and 2017 with an opioid-related ICD10 code assigned to them as a cause of death. The data source presented several challenges, not least among them, errors due to manual entry of information. However, the greatest hurdle were changes to data format in mid-2014. Prior to that 2014 format change, 77 variables were available. After the format change, a staggering 843 were available. While the vast majority of the earlier variables were repeated in the newer format, both variable names and coding structures were updated. In order to fit any sort of temporal model, we needed a unified data set. Additionally, while we were interested in several individual-level covariates, much of these data were irrelevant to us. I developed the following functions as a mechanism to extract specific information from the raw vitals, recode it, and populate a data frame much more suited to the project's needs. 
+This project made use of publicly available death records of individuals who died in Massachusetts, USA between 2000 and 2017 with an opioid-related ICD10 code assigned to them as a cause of death. The data source presented several challenges, not least among them, errors due to manual entry of information. However, the greatest hurdle were changes to data format in mid-2014. Prior to that 2014 format change, 77 variables were available. After the format change, a staggering 843 were available. While the vast majority of the earlier variables were repeated in the newer format, both variable names and coding structures were updated. In order to fit any sort of temporal model, we needed a unified data set. Additionally, while we were interested in several individual-level covariates, much of these data were irrelevant to us. I developed the following functions as a mechanism to extract specific information from the raw vitals, recode it, and populate a data frame much more suited to the project's needs. Note that these functions create coded data sets. The full data included several hundred thousand observations. The coding was a mechanism meant to reduce filesize for sharing between colleagues. The analysis was actually completed using data run through another function which converted the numeric labels to their representative values. 
 
 ```{r}
+#### For deaths 2000-mid 2014 ####
 vital.00.14<-function(dataset){
   temp<-list()
   state<-c("ALABAMA","ALASKA","ARIZONA","ARKANSAS","CALIFORNIA","COLORADO",
@@ -186,7 +193,8 @@ vital.00.14<-function(dataset){
                       no=temp$travel[j]<-1),
            no=temp$travel[j]<-NA)
     # All icd variables
-    y<-str_trim(str_split(str_replace_all(dataset[j,"TRX_REC_AXIS_CD"],"  "," ")," ",simplify=T),side="both")
+    y<-str_trim(str_split(str_replace_all(dataset[j,"TRX_REC_AXIS_CD"],"  "," "),
+                          " ",simplify=T),side="both")
     x<-vector(mode="character")
     l<-1
     for(k in 1:length(y)){
@@ -253,6 +261,12 @@ vital.00.14<-function(dataset){
   }
   return(as_tibble(temp))
 }
+```
+
+\newpage
+
+```{r}
+#### For deaths late 2014-2017 ####
 vital.14.17<-function(dataset){
   temp<-list()
   # batch
@@ -413,7 +427,8 @@ vital.14.17<-function(dataset){
                     no=temp$travel[i]<-0),
          no=temp$travel[i]<-NA)
   # icd1
-  z<-str_trim(str_split(str_replace_all(dataset[i,"TRX_REC_AXIS_CD"],"  "," ")," ",simplify=T),side="both")
+  z<-str_trim(str_split(str_replace_all(dataset[i,"TRX_REC_AXIS_CD"],"  "," "),
+                        " ",simplify=T),side="both")
   y<-vector(mode="character")
   l<-1
   for(k in 1:length(z)){
@@ -481,26 +496,35 @@ vital.14.17<-function(dataset){
 }
 ```
 
+\newpage
+
 # Simulated Data
+
+## Individual Data Set
 
 The following data set mimics that created by the above functions. 
 
 ```{r}
+#### Preparing occupation data ####
+occup<-occups%>%
+  transmute(var=map2_chr(.x=occup,.y=indust,.f=~paste(.x,.y,sep=";")))
+occup<-sample(occup[[1]],500,replace=T)
+occup<-data.frame(occup)%>%
+  separate(occup, into=c("occup","indust"),sep=";")
 
-
-
+#### Coded data ####
+# For reproducability
 set.seed(8282019)
-# data<-
-  
-data.frame(
+
+ind<-data.frame(
   batch=sample(c(1,2),500,replace=T),
   sfnum=sample(0:999999,500,replace=F),
   ddate=sample(seq(as.Date("2000-01-01"),as.Date("2017-12-31"),by="day"),500,replace=T),
   male=sample(0:1,500,replace=T),
   age=sample(0:100,500,replace=T),
   race=sample(1:7,500,replace=T),
-  occup=sample(occups[[1]],500,replace=T),
-  indust=sample(occups[[2]],500,replace=T),
+  occup=occup$occup,
+  indust=occup$indust,
   edu=sample(1:5,500,replace=T),
   immig=sample(0:4,500,replace=T),
   pimmig=sample(0:2,500,replace=T),
@@ -536,5 +560,207 @@ data.frame(
   icd14=paste0(sample(LETTERS,500,replace=T),sample(01:99,500,replace=T)),
   icd15=paste0(sample(LETTERS,500,replace=T),sample(01:99,500,replace=T)),
   icd16=paste0(sample(LETTERS,500,replace=T),sample(01:99,500,replace=T)))
+
+#### Factored data ####
+ind<-ind%>%
+  # Changing coding to descriptive factors
+  mutate(batch=factor(batch,levels=c(1:2)),
+         male=factor(male,levels=c(0:1),labels=c("FEMALE","MALE")),
+         race=factor(race,levels=c(1:7),
+                     labels=c("NON-HISPANIC WHITE",
+                              "NON-HISPANIC BLACK",
+                              "HISPANIC / LATINO",
+                              "ASIAN",
+                              "NATIVE AMERICAN / AMERICAN INDIAN / ALASKA NATIVE",
+                              "MULTI-RACIAL",
+                              "OTHER")),
+         edu=factor(edu,levels=c(1:5),
+                    labels=c("LESS THAN HIGHSCHOOL",
+                             "HIGH SCHOOL / GED / CERTIFICATE / SOME COLLEGE",
+                             "BACHELOR'S / ASSOCIATE'S DEGREE",
+                             "MASTER'S DEGREE OR HIGHER",
+                             "SPECIAL EDUCATION")),
+         immig=factor(immig,levels=c(0:4),
+                      labels=c("BORN AND LIVE IN US",
+                               "BORN ELSEWHERE AND LIVE IN US",
+                               "BORN ELSEWHERE AND LIVE ELSEWHERE",
+                               "BORN IN US AND LIVE ELSEWHERE",
+                               "BORN ELSEWHERE")),
+         pimmig=factor(pimmig,levels=c(0:2),
+                              labels=c("BOTH PARENTS BORN IN US",
+                                       "AT LEAST ONE PARENT BORN OUTSIDE US",
+                                       "BOTH PARENTS BORN OUTSIDE US")),
+         marital=factor(marital,levels=c(1,3:5),
+                        labels=c("MARRIED OR SEPERATED",
+                                 "WIDOWED",
+                                 "DIVORCED",
+                                 "NEVER MARRIED")),
+         veteran=factor(veteran,levels=c(0:1),
+                        labels=c("NOT A VETERAN",
+                                 "VETERAN")),
+         preg=factor(preg,levels=c(0:2),
+                     labels=c("NOT PREGNANT IN LAST YEAR",
+                              "PREGNANT AT DEATH",
+                              "NOT PREGNANT AT DEATH, PREGNANT IN LAST YEAR")),
+         dplace=factor(dplace,levels=c(1:8),
+                       labels=c("HOSPITAL, INPATIENT",
+                                "HOSPITAL, OUTPATIENT / ER",
+                                "HOSPITAL, DOA",
+                                "RESIDENCE",
+                                "HOSPICE",
+                                "NURSING HOME",
+                                "ASSISTED LIVING FACILITY / REST HOME",
+                                "OTHER")),
+         travel=factor(travel,levels=c(0:1),
+                       labels=c("DIED AND RESIDE IN SAME CITY",
+                                "DIED AND RESIDE IN DIFFERENT CITIES")))
+
+#### Class conversions ####
+ind$dcity<-as.character(ind$dcity)
+ind$ddad<-as.character(ind$ddad)
+# ind$ddate<-as.character(ind$ddate)
+ind$dfacilitynum<-as.character(ind$dfacilitynum)
+ind$dnat<-as.character(ind$dnat)
+ind$dstate<-as.character(ind$dstate)
+ind$dzip<-as.character(ind$dzip)
+ind$icd1<-as.character(ind$icd1)
+ind$icd2<-as.character(ind$icd2)
+ind$icd3<-as.character(ind$icd3)
+ind$icd4<-as.character(ind$icd4)
+ind$icd5<-as.character(ind$icd5)
+ind$icd6<-as.character(ind$icd6)
+ind$icd7<-as.character(ind$icd7)
+ind$icd8<-as.character(ind$icd8)
+ind$icd9<-as.character(ind$icd9)
+ind$icd10<-as.character(ind$icd10)
+ind$icd11<-as.character(ind$icd11)
+ind$icd12<-as.character(ind$icd12)
+ind$icd13<-as.character(ind$icd13)
+ind$icd14<-as.character(ind$icd14)
+ind$icd15<-as.character(ind$icd15)
+ind$icd16<-as.character(ind$icd16)
+ind$indust<-as.character(ind$indust)
+ind$occup<-as.character(ind$occup)
+ind$resadd<-as.character(ind$resadd)
+ind$rescity<-as.character(ind$rescity)
+ind$resnat<-as.character(ind$resnat)
+ind$resstate<-as.character(ind$resstate)
+ind$reszip<-as.character(ind$reszip)
+ind$sfnum<-as.character(ind$sfnum)
+
+head(ind)
+```
+
+\newpage
+
+## Aggregate Data Set
+
+```{r}
+# All possible combination of month, year, and zip
+base<-data.frame(zip=rep(shp@data$ZCTA5CE10,(12*18)),
+                 month=rep(c(rep(1,538),rep(2,538),rep(3,538),rep(4,538),
+                         rep(5,538),rep(6,538),rep(7,538),rep(8,538),
+                         rep(9,538),rep(10,538),rep(11,538),rep(12,538)),18),
+                 year=c(rep(2000,538*12),rep(2001,538*12),rep(2002,538*12),
+                        rep(2003,538*12),rep(2004,538*12),rep(2005,538*12),
+                        rep(2006,538*12),rep(2007,538*12),rep(2008,538*12),
+                        rep(2009,538*12),rep(2010,538*12),rep(2011,538*12),
+                        rep(2012,538*12),rep(2013,538*12),rep(2014,538*12),
+                        rep(2015,538*12),rep(2016,538*12),rep(2017,538*12)))
+agMonth<-base%>%
+  # join to aggregated counts
+  left_join(ind%>%
+              # Extract death year and month from date object
+              mutate(dyear=year(as.Date(ddate)),
+                     dmonth=month(as.Date(ddate)))%>%
+              # Determine number of cases in each zip code in each month
+              group_by(reszip,dyear,dmonth)%>%
+              summarize(cases=n()),
+            by=c("zip"="reszip","month"="dmonth","year"="dyear"))%>%
+  # Turn NA to 0
+  mutate(cases=map_dbl(.x=cases,.f=~if(is.na(.x)){return(0)}else{return(.x)}))
+
+head(agMonth)
+```
+
+
+\newpage
+
+# Exploratory Data Analysis
+
+## Summary Tables
+
+```{r}
+#### Numeric Variables ####
+ind%>%
+  select(names(ind[map_lgl(ind,is.numeric)]))%>%
+  gather(colnames(ind[map_lgl(ind,is.numeric)]),key=variable,value=value)%>%
+  group_by(variable)%>%
+  summarize(Mean=mean(value,na.rm=T),
+  SD=sd(value,na.rm=T),
+  R1=range(value,na.rm=T)[1],
+  R2=range(value,na.rm=T)[2],
+  UniqueValues=length(unique(value[!is.na(value)])),
+  PropMissingness=sum(is.na(value))/length(value))%>%
+  mutate(Range=paste0("[",R1,", ",R2,"]"),
+         percent=paste0(round(PropMissingness*100,3),"%"))%>%
+  select(Variable=variable,Mean,SD,Range,`Unique Values`=UniqueValues,Missingness=percent)%>%
+  kable(booktabs=T,digits=3,
+        caption="Summary of Quantitative Variables in Individual Data Set",align="c")%>%
+  kable_styling(latex_options=c("HOLD_position","striped"),position="center")
+
+#### Character variables ####
+ind%>%
+  select(names(ind[map_lgl(ind,is.character)]))%>%
+  gather(variable,value)%>%
+  group_by(variable)%>%
+  summarize(UniqueValues=length(unique(value[!is.na(value)])),
+  PropMissingness=sum(is.na(value))/length(value))%>%
+  mutate(percent=paste0(round(PropMissingness*100,3),"%"))%>%
+  select(Variable=variable,`Unique Values`=UniqueValues,Missingness=percent)%>%
+  kable(booktabs=T,digits=3,
+        caption="Summary of Character Variables in Individual Data Set",align="c")%>%
+  kable_styling(latex_options=c("HOLD_position","striped"),position="center")
+
+#### Factor variables ####
+var<-names(ind)[map_lgl(ind,is.factor)]
+fac<-data.frame()
+for(i in 1:11){
+  df<-as.data.frame(table(ind[,var[i]],useNA="always"))
+  df$name<-var[i]
+  fac<-bind_rows(fac,df)
+}
+fac%>%
+  select(name,everything())%>%
+  mutate(Freq=prettyNum(Freq,big.mark=","))%>%
+  kable(booktabs=T,longtable=T,digits=3,caption="Summary of Categorical Variables in Individual Data Set",align="c",
+        col.names=c("Variable","Value","Frequency"))%>%
+  kable_styling(latex_options=c("HOLD_position","repeat_header","striped"),position="center")%>%
+  collapse_rows(columns=1,latex_hline="major",valign="middle")
+```
+
+```{r}
+#### Univariate graphics loop ####
+uni.plots<-function(dataset,rmCol){
+  data<-dataset[,-rmCol]
+  plots<-list()
+  for (i in 1:length(data)){
+    if (is.numeric(data[[i]])){
+      plots[[i]]<- ggplot(data,aes_string(colnames(data[,i])))+
+                    geom_histogram()+
+                    xlab(colnames(data[,i]))+
+                    ylab("count")+
+                    theme(text=element_text(family="LM Roman 10"))
+    } else {
+      plots[[i]]<- ggplot(data,aes_string(colnames(data[,i])))+
+      geom_bar()+
+      xlab(colnames(data[,i]))+
+      ylab("count")+
+      theme(text=element_text(family="LM Roman 10"))
+    }
+  }
+  return(marrangeGrob(plots,nrow=6,ncol=2,top=textGrob("Univariate Plots",gp=gpar(fontsize=16,fontfamily="LM Roman 10"))))
+}
+uni.plots(ind,c(2,7:8,15,16,19,21,22:24,26,28:length(ind)))
 ```
 
