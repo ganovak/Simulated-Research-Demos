@@ -3,10 +3,19 @@ title: "Opioid-Related Death in Massachusetts"
 subtitle: "Simulated Demo"
 author: "Gabby Novak"
 output: pdf_document
+header-includes:
+- \usepackage{pdflscape}
+- \newcommand{\blandscape}{\begin{landscape}}
+- \newcommand{\elandscape}{\end{landscape}}
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE,message=F,error=F,warning=F)
+knitr::opts_chunk$set(echo = TRUE,
+                      message=F,
+                      error=F,
+                      warning=F,
+                      fig.height=11,
+                      fig.width=8)
 setwd("D:/Simulated-Research-Demos")
 ```
 
@@ -18,19 +27,24 @@ library(tigris)
 library(lubridate)
 library(knitr)
 library(kableExtra)
+library(grid)
 library(gridExtra)
 library(extrafont)
+library(viridis)
 
 #### External Data ####
 # base shp file for mapping
 shp<-zctas(year=2010,state="Massachusetts")
 # Example occupations and industries
 occups<-read_csv("Occups.csv")
+# ICD10 2018 codes
+# Source: https://www.cms.gov/Medicare/Coding/ICD10/2018-ICD-10-CM-and-GEMs.html
+icd10<-read_csv("icd10cm_order_2018.csv")
 ```
 
 # Data Set Unification
 
-This project made use of publicly available death records of individuals who died in Massachusetts, USA between 2000 and 2017 with an opioid-related ICD10 code assigned to them as a cause of death. The data source presented several challenges, not least among them, errors due to manual entry of information. However, the greatest hurdle were changes to data format in mid-2014. Prior to that 2014 format change, 77 variables were available. After the format change, a staggering 843 were available. While the vast majority of the earlier variables were repeated in the newer format, both variable names and coding structures were updated. In order to fit any sort of temporal model, we needed a unified data set. Additionally, while we were interested in several individual-level covariates, much of these data were irrelevant to us. I developed the following functions as a mechanism to extract specific information from the raw vitals, recode it, and populate a data frame much more suited to the project's needs. Note that these functions create coded data sets. The full data included several hundred thousand observations. The coding was a mechanism meant to reduce filesize for sharing between colleagues. The analysis was actually completed using data run through another function which converted the numeric labels to their representative values. 
+This project made use of publicly available death records of individuals who died in Massachusetts, USA between 2000 and 2017 with an opioid-related ICD10 code assigned to them as a cause of death. The data source presented several challenges, not least among them, errors due to manual entry of information. However, the greatest hurdle were changes to data format in mid-2014. Prior to that 2014 format change, 77 variables were available. After the format change, a staggering 843 were available. While the vast majority of the earlier variables were repeated in the newer format, both variable names and coding structures were updated. In order to fit any sort of temporal model, we needed a unified data set. Additionally, while we were interested in several individual-level covariates, much of these data were irrelevant to us. I developed the following functions as a mechanism to extract specific information from the raw vitals, recode it, and populate a data frame much more suited to the project's needs. Note that these functions create coded data sets. The full data included several hundred thousand observations. The coding was a mechanism meant to reduce file size for sharing between colleagues. The analysis was actually completed using data run through another function which converted the numeric labels to their representative values. 
 
 ```{r}
 #### For deaths 2000-mid 2014 ####
@@ -512,6 +526,10 @@ occup<-sample(occup[[1]],500,replace=T)
 occup<-data.frame(occup)%>%
   separate(occup, into=c("occup","indust"),sep=";")
 
+#### Subsetting icd10 codes ####
+# To replicate repetition in actual data set
+icd10<-sample_n(icd10[icd10$Header==1,],20000)
+
 #### Coded data ####
 # For reproducability
 set.seed(8282019)
@@ -531,38 +549,38 @@ ind<-data.frame(
   marital=sample(c(1,3:5),500,replace=T),
   veteran=sample(0:1,500,replace=T),
   preg=sample(0:2,500,replace=T),
-  resadd="1234 Circle Street",
-  rescity= "Anytown",
-  resstate= "Massachusetts",
+  resadd="1234 CIRCLE ST",
+  rescity= "ANYTOWN",
+  resstate= "MASSACHUSETTS",
   reszip=sample(shp@data$ZCTA5CE10,500,replace=T),
-  resnat="United States",
+  resnat="UNITED STATES",
   dplace=sample(1:8,500,replace=T),
   dfacilitynum="000000",
-  ddad="1234 Square Street",
-  dcity="Anytown",
-  dstate="Massachusetts",
+  ddad="1234 SQUARE ST",
+  dcity="ANYTOWN",
+  dstate="MASSACHUSETTS",
   dzip=sample(shp@data$ZCTA5CE10,500,replace=T),
-  dnat="United States",
+  dnat="UNITED STATES",
   travel=sample(0:1,500,replace=T),
-  icd1=paste0(sample(LETTERS,500,replace=T),sample(01:99,500,replace=T)),
-  icd2=paste0(sample(LETTERS,500,replace=T),sample(01:99,500,replace=T)),
-  icd3=paste0(sample(LETTERS,500,replace=T),sample(01:99,500,replace=T)),
-  icd4=paste0(sample(LETTERS,500,replace=T),sample(01:99,500,replace=T)),
-  icd5=paste0(sample(LETTERS,500,replace=T),sample(01:99,500,replace=T)),
-  icd6=paste0(sample(LETTERS,500,replace=T),sample(01:99,500,replace=T)),
-  icd7=paste0(sample(LETTERS,500,replace=T),sample(01:99,500,replace=T)),
-  icd8=paste0(sample(LETTERS,500,replace=T),sample(01:99,500,replace=T)),
-  icd9=paste0(sample(LETTERS,500,replace=T),sample(01:99,500,replace=T)),
-  icd10=paste0(sample(LETTERS,500,replace=T),sample(01:99,500,replace=T)),
-  icd11=paste0(sample(LETTERS,500,replace=T),sample(01:99,500,replace=T)),
-  icd12=paste0(sample(LETTERS,500,replace=T),sample(01:99,500,replace=T)),
-  icd13=paste0(sample(LETTERS,500,replace=T),sample(01:99,500,replace=T)),
-  icd14=paste0(sample(LETTERS,500,replace=T),sample(01:99,500,replace=T)),
-  icd15=paste0(sample(LETTERS,500,replace=T),sample(01:99,500,replace=T)),
-  icd16=paste0(sample(LETTERS,500,replace=T),sample(01:99,500,replace=T)))
+  icd1=sample(icd10$ICD10Code,500,replace=T),
+  icd2=sample(icd10$ICD10Code,500,replace=T),
+  icd3=sample(icd10$ICD10Code,500,replace=T),
+  icd4=sample(icd10$ICD10Code,500,replace=T),
+  icd5=sample(icd10$ICD10Code,500,replace=T),
+  icd6=sample(icd10$ICD10Code,500,replace=T),
+  icd7=sample(icd10$ICD10Code,500,replace=T),
+  icd8=sample(icd10$ICD10Code,500,replace=T),
+  icd9=sample(icd10$ICD10Code,500,replace=T),
+  icd10=sample(icd10$ICD10Code,500,replace=T),
+  icd11=sample(icd10$ICD10Code,500,replace=T),
+  icd12=sample(icd10$ICD10Code,500,replace=T),
+  icd13=sample(icd10$ICD10Code,500,replace=T),
+  icd14=sample(icd10$ICD10Code,500,replace=T),
+  icd15=sample(icd10$ICD10Code,500,replace=T),
+  icd16=sample(icd10$ICD10Code,500,replace=T))
 
 #### Factored data ####
-ind<-ind%>%
+ind.f<-ind%>%
   # Changing coding to descriptive factors
   mutate(batch=factor(batch,levels=c(1:2)),
          male=factor(male,levels=c(0:1),labels=c("FEMALE","MALE")),
@@ -616,39 +634,39 @@ ind<-ind%>%
                                 "DIED AND RESIDE IN DIFFERENT CITIES")))
 
 #### Class conversions ####
-ind$dcity<-as.character(ind$dcity)
-ind$ddad<-as.character(ind$ddad)
+ind.f$dcity<-as.character(ind.f$dcity)
+ind.f$ddad<-as.character(ind.f$ddad)
 # ind$ddate<-as.character(ind$ddate)
-ind$dfacilitynum<-as.character(ind$dfacilitynum)
-ind$dnat<-as.character(ind$dnat)
-ind$dstate<-as.character(ind$dstate)
-ind$dzip<-as.character(ind$dzip)
-ind$icd1<-as.character(ind$icd1)
-ind$icd2<-as.character(ind$icd2)
-ind$icd3<-as.character(ind$icd3)
-ind$icd4<-as.character(ind$icd4)
-ind$icd5<-as.character(ind$icd5)
-ind$icd6<-as.character(ind$icd6)
-ind$icd7<-as.character(ind$icd7)
-ind$icd8<-as.character(ind$icd8)
-ind$icd9<-as.character(ind$icd9)
-ind$icd10<-as.character(ind$icd10)
-ind$icd11<-as.character(ind$icd11)
-ind$icd12<-as.character(ind$icd12)
-ind$icd13<-as.character(ind$icd13)
-ind$icd14<-as.character(ind$icd14)
-ind$icd15<-as.character(ind$icd15)
-ind$icd16<-as.character(ind$icd16)
-ind$indust<-as.character(ind$indust)
-ind$occup<-as.character(ind$occup)
-ind$resadd<-as.character(ind$resadd)
-ind$rescity<-as.character(ind$rescity)
-ind$resnat<-as.character(ind$resnat)
-ind$resstate<-as.character(ind$resstate)
-ind$reszip<-as.character(ind$reszip)
-ind$sfnum<-as.character(ind$sfnum)
+ind.f$dfacilitynum<-as.character(ind.f$dfacilitynum)
+ind.f$dnat<-as.character(ind.f$dnat)
+ind.f$dstate<-as.character(ind.f$dstate)
+ind.f$dzip<-as.character(ind.f$dzip)
+ind.f$icd1<-as.character(ind.f$icd1)
+ind.f$icd2<-as.character(ind.f$icd2)
+ind.f$icd3<-as.character(ind.f$icd3)
+ind.f$icd4<-as.character(ind.f$icd4)
+ind.f$icd5<-as.character(ind.f$icd5)
+ind.f$icd6<-as.character(ind.f$icd6)
+ind.f$icd7<-as.character(ind.f$icd7)
+ind.f$icd8<-as.character(ind.f$icd8)
+ind.f$icd9<-as.character(ind.f$icd9)
+ind.f$icd10<-as.character(ind.f$icd10)
+ind.f$icd11<-as.character(ind.f$icd11)
+ind.f$icd12<-as.character(ind.f$icd12)
+ind.f$icd13<-as.character(ind.f$icd13)
+ind.f$icd14<-as.character(ind.f$icd14)
+ind.f$icd15<-as.character(ind.f$icd15)
+ind.f$icd16<-as.character(ind.f$icd16)
+ind.f$indust<-as.character(ind.f$indust)
+ind.f$occup<-as.character(ind.f$occup)
+ind.f$resadd<-as.character(ind.f$resadd)
+ind.f$rescity<-as.character(ind.f$rescity)
+ind.f$resnat<-as.character(ind.f$resnat)
+ind.f$resstate<-as.character(ind.f$resstate)
+ind.f$reszip<-as.character(ind.f$reszip)
+ind.f$sfnum<-as.character(ind.f$sfnum)
 
-head(ind)
+head(ind.f)
 ```
 
 \newpage
@@ -690,11 +708,13 @@ head(agMonth)
 
 ## Summary Tables
 
+These tables give an overview of the data based on the type of data it is. Helpful during the data cleaning stage when deciding on possible class conversions. 
+
 ```{r}
 #### Numeric Variables ####
-ind%>%
-  select(names(ind[map_lgl(ind,is.numeric)]))%>%
-  gather(colnames(ind[map_lgl(ind,is.numeric)]),key=variable,value=value)%>%
+ind.f%>%
+  select(names(ind[map_lgl(ind.f,is.numeric)]))%>%
+  gather(colnames(ind[map_lgl(ind.f,is.numeric)]),key=variable,value=value)%>%
   group_by(variable)%>%
   summarize(Mean=mean(value,na.rm=T),
   SD=sd(value,na.rm=T),
@@ -710,8 +730,8 @@ ind%>%
   kable_styling(latex_options=c("HOLD_position","striped"),position="center")
 
 #### Character variables ####
-ind%>%
-  select(names(ind[map_lgl(ind,is.character)]))%>%
+ind.f%>%
+  select(names(ind.f[map_lgl(ind.f,is.character)]))%>%
   gather(variable,value)%>%
   group_by(variable)%>%
   summarize(UniqueValues=length(unique(value[!is.na(value)])),
@@ -723,10 +743,10 @@ ind%>%
   kable_styling(latex_options=c("HOLD_position","striped"),position="center")
 
 #### Factor variables ####
-var<-names(ind)[map_lgl(ind,is.factor)]
+var<-names(ind.f)[map_lgl(ind.f,is.factor)]
 fac<-data.frame()
 for(i in 1:11){
-  df<-as.data.frame(table(ind[,var[i]],useNA="always"))
+  df<-as.data.frame(table(ind.f[,var[i]],useNA="always"))
   df$name<-var[i]
   fac<-bind_rows(fac,df)
 }
@@ -739,28 +759,193 @@ fac%>%
   collapse_rows(columns=1,latex_hline="major",valign="middle")
 ```
 
+## Univariate Graphics Loop
+
+Plots all variables with appropriate graphical summaries. Used to find possible relationships for later investigation. Not all of these graphs are insightful, so an argument (`rmCol`) is available is specify variables for the function to ignore.
+
 ```{r}
-#### Univariate graphics loop ####
-uni.plots<-function(dataset,rmCol){
-  data<-dataset[,-rmCol]
+uni.plots<-function(dataset,rmCol=NULL){
+  if(is.null(rmCol)){data<-dataset}
+  else{data<-dataset[,-rmCol]}
   plots<-list()
   for (i in 1:length(data)){
     if (is.numeric(data[[i]])){
-      plots[[i]]<- ggplot(data,aes_string(colnames(data[,i])))+
+      plots[[i]]<- ggplot(data,aes_string(x=colnames(data[i])))+
                     geom_histogram()+
-                    xlab(colnames(data[,i]))+
+                    xlab(colnames(data[i]))+
                     ylab("count")+
                     theme(text=element_text(family="LM Roman 10"))
+                    #axis.text.x=element_text(angle=45))
     } else {
-      plots[[i]]<- ggplot(data,aes_string(colnames(data[,i])))+
+      plots[[i]]<- ggplot(data,aes_string(x=colnames(data[i])))+
       geom_bar()+
-      xlab(colnames(data[,i]))+
+      xlab(colnames(data[i]))+
       ylab("count")+
       theme(text=element_text(family="LM Roman 10"))
+            #axis.text.x=element_text(angle=45))
     }
   }
-  return(marrangeGrob(plots,nrow=6,ncol=2,top=textGrob("Univariate Plots",gp=gpar(fontsize=16,fontfamily="LM Roman 10"))))
+  return(marrangeGrob(plots,nrow=5,ncol=2,top=textGrob("Univariate Plots",gp=gpar(fontsize=16,fontfamily="LM Roman 10"))))
 }
-uni.plots(ind,c(2,7:8,15,16,19,21,22:24,26,28:length(ind)))
+
+uni.plots(ind,c(2,15:17,19,21:24,26,28:length(ind)))
 ```
 
+
+\blandscape
+
+## Cause of Death Tables
+
+```{r}
+#### Joining in ICD10 descriptions ####
+ind.f<-ind.f%>%
+  left_join(icd10[,c(2,5)],by=c("icd1"="ICD10Code"))%>%
+  rename(icd1.desc=LongDesc)%>%
+  left_join(icd10[,c(2,5)],by=c("icd2"="ICD10Code"))%>%
+  rename(icd2.desc=LongDesc)%>%
+  left_join(icd10[,c(2,5)],by=c("icd3"="ICD10Code"))%>%
+  rename(icd3.desc=LongDesc)%>%
+  left_join(icd10[,c(2,5)],by=c("icd4"="ICD10Code"))%>%
+  rename(icd4.desc=LongDesc)%>%
+  left_join(icd10[,c(2,5)],by=c("icd5"="ICD10Code"))%>%
+  rename(icd5.desc=LongDesc)%>%
+  left_join(icd10[,c(2,5)],by=c("icd6"="ICD10Code"))%>%
+  rename(icd6.desc=LongDesc)%>%
+  left_join(icd10[,c(2,5)],by=c("icd7"="ICD10Code"))%>%
+  rename(icd7.desc=LongDesc)%>%
+  left_join(icd10[,c(2,5)],by=c("icd8"="ICD10Code"))%>%
+  rename(icd8.desc=LongDesc)%>%
+  left_join(icd10[,c(2,5)],by=c("icd9"="ICD10Code"))%>%
+  rename(icd9.desc=LongDesc)%>%
+  left_join(icd10[,c(2,5)],by=c("icd10"="ICD10Code"))%>%
+  rename(icd10.desc=LongDesc)%>%
+  left_join(icd10[,c(2,5)],by=c("icd11"="ICD10Code"))%>%
+  rename(icd11.desc=LongDesc)%>%
+  left_join(icd10[,c(2,5)],by=c("icd12"="ICD10Code"))%>%
+  rename(icd12.desc=LongDesc)%>%
+  left_join(icd10[,c(2,5)],by=c("icd13"="ICD10Code"))%>%
+  rename(icd13.desc=LongDesc)%>%
+  left_join(icd10[,c(2,5)],by=c("icd14"="ICD10Code"))%>%
+  rename(icd14.desc=LongDesc)%>%
+  left_join(icd10[,c(2,5)],by=c("icd15"="ICD10Code"))%>%
+  rename(icd15.desc=LongDesc)%>%
+  left_join(icd10[,c(2,5)],by=c("icd16"="ICD10Code"))%>%
+  rename(icd16.desc=LongDesc)
+
+#### Primary ####
+as.data.frame(table(ind.f$icd1.desc))%>%
+  top_n(5,Freq)%>%
+  kable(booktabs=T,digits=3,longtable=T,caption="Summary of Primary Causes of Death",align="c",
+        col.names=c("Cause of Death","Frequency"))%>%
+  kable_styling(latex_options=c("HOLD_position","striped","repeat_header"),position="center")%>%
+  column_spec(1,width="8in")
+
+#### Secondary ####
+as.data.frame(table(ind.f$icd2.desc))%>%
+  top_n(5,Freq)%>%
+  kable(booktabs=T,digits=3,longtable=T,caption="Summary of Secondary Causes of Death",align="c",
+        col.names=c("Cause of Death","Frequency"))%>%
+  kable_styling(latex_options=c("HOLD_position","striped","repeat_header"),position="center")%>%
+  column_spec(1,width="8in")
+```
+
+\elandscape
+
+## Mapping
+
+```{r CountMapYear, fig.height=7}
+map<-fortify(shp,region="ZCTA5CE10")
+map<- merge(map, agMonth%>%rename(id=zip)%>%group_by(id,year)%>%summarize(cases=sum(cases)), by="id", all.x = TRUE)
+map<- map[order(map$order),]
+# 2000-2005
+ggplot()+
+  geom_polygon(data=map[map$year<=2005,],
+               aes(long,lat,group=group,fill=cut(cases,c(-1,0,5,10,15,20,25,30,35))),color=NA)+
+  coord_fixed(1.2)+
+  facet_wrap(~year,ncol=2)+
+  scale_fill_viridis(discrete=T,drop=F,na.value="antiquewhite",
+                     labels =c("0","(0,5]","(5,10]","(10,15]",
+                               "(15,20]","(20,25]","(25,30]",
+                               "(30,35]"))+
+  labs(x="Longitude",y="Latitude",fill=NULL,title ="Observed Opioid Overdose Death Counts in MA")+
+  theme(legend.position = "bottom",legend.key.width=unit(2.5,"cm"),
+        legend.spacing.x = unit(.3, 'cm'),plot.title = element_text(hjust = 0.5),
+        text=element_text(family="LM Roman 10"))
+#2006-2011
+ggplot()+
+  geom_polygon(data=map[map$year<=2011&map$year>=2006,],
+               aes(long,lat,group=group,fill=cut(cases,c(-1,0,5,10,15,20,25,30,35))),color=NA)+
+  coord_fixed(1.2)+
+  facet_wrap(~year,ncol=2)+
+  scale_fill_viridis(discrete=T,drop=F,na.value="antiquewhite",
+                     labels =c("0","(0,5]","(5,10]","(10,15]",
+                               "(15,20]","(20,25]","(25,30]",
+                               "(30,35]"))+
+  labs(x="Longitude",y="Latitude",fill=NULL,title ="Observed Opioid Overdose Death Counts in MA")+
+  theme(legend.position = "bottom",legend.key.width=unit(2.5,"cm"),
+        legend.spacing.x = unit(.3, 'cm'),plot.title = element_text(hjust = 0.5),
+        text=element_text(family="LM Roman 10"))
+#2012-2017
+ggplot()+
+  geom_polygon(data=map[map$year<=2017&map$year>=2012,],
+               aes(long,lat,group=group,fill=cut(cases,c(-1,0,5,10,15,20,25,30,35))),color=NA)+
+  coord_fixed(1.2)+
+  facet_wrap(~year,ncol=2)+
+  scale_fill_viridis(discrete=T,drop=F,na.value="antiquewhite",
+                     labels =c("0","(0,5]","(5,10]","(10,15]",
+                               "(15,20]","(20,25]","(25,30]",
+                               "(30,35]"))+
+  labs(x="Longitude",y="Latitude",fill=NULL,title ="Observed Opioid Overdose Death Counts by Year")+
+  theme(legend.position = "bottom",legend.key.width=unit(2.5,"cm"),
+        legend.spacing.x = unit(.3, 'cm'),plot.title = element_text(hjust = 0.5),
+        text=element_text(family="LM Roman 10"))
+```
+
+```{r CountMapMonth}
+map<-fortify(shp,region="ZCTA5CE10")
+map<- merge(map, 
+            agMonth%>%
+              rename(id=zip)%>%
+              mutate(month=month(month,label=T,abbr=F))%>%
+              group_by(id,month)%>%
+              summarize(cases=sum(cases)), by="id", all.x = TRUE)
+map<- map[order(map$order),]
+# Jan-Jul
+ggplot()+
+  geom_polygon(data=map[map$month=="January"|
+                        map$month=="February"|
+                        map$month=="March"|
+                        map$month=="April"|
+                        map$month=="May"|
+                        map$month=="June",],
+               aes(long,lat,group=group,fill=cut(cases,c(-1,0,5,10,15,20,25,30,35))),color=NA)+
+  coord_fixed(1.2)+
+  facet_wrap(~month,ncol=2)+
+  scale_fill_viridis(discrete=T,drop=F,na.value="antiquewhite",
+                     labels =c("0","(0,5]","(5,10]","(10,15]",
+                               "(15,20]","(20,25]","(25,30]",
+                               "(30,35]"))+
+  labs(x="Longitude",y="Latitude",fill=NULL,title ="Observed Opioid Overdose Death Counts in MA")+
+  theme(legend.position = "bottom",legend.key.width=unit(2.5,"cm"),
+        legend.spacing.x = unit(.3, 'cm'),plot.title = element_text(hjust = 0.5),
+        text=element_text(family="LM Roman 10"))
+# Aug-Dec
+ggplot()+
+  geom_polygon(data=map[map$month=="July"|
+                        map$month=="August"|
+                        map$month=="September"|
+                        map$month=="October"|
+                        map$month=="November"|
+                        map$month=="December",],
+               aes(long,lat,group=group,fill=cut(cases,c(-1,0,5,10,15,20,25,30,35))),color=NA)+
+  coord_fixed(1.2)+
+  facet_wrap(~month,ncol=2)+
+  scale_fill_viridis(discrete=T,drop=F,na.value="antiquewhite",
+                     labels =c("0","(0,5]","(5,10]","(10,15]",
+                               "(15,20]","(20,25]","(25,30]",
+                               "(30,35]"))+
+  labs(x="Longitude",y="Latitude",fill=NULL,title ="Observed Opioid Overdose Death Counts in MA")+
+  theme(legend.position = "bottom",legend.key.width=unit(2.5,"cm"),
+        legend.spacing.x = unit(.3, 'cm'),plot.title = element_text(hjust = 0.5),
+        text=element_text(family="LM Roman 10"))
+```
