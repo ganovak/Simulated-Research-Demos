@@ -724,7 +724,8 @@ ind.f%>%
   PropMissingness=sum(is.na(value))/length(value))%>%
   mutate(Range=paste0("[",R1,", ",R2,"]"),
          percent=paste0(round(PropMissingness*100,3),"%"))%>%
-  select(Variable=variable,Mean,SD,Range,`Unique Values`=UniqueValues,Missingness=percent)%>%
+  select(Variable=variable,Mean,SD,Range,`Unique Values`=UniqueValues,
+         Missingness=percent)%>%
   kable(booktabs=T,digits=3,
         caption="Summary of Quantitative Variables in Individual Data Set",align="c")%>%
   kable_styling(latex_options=c("HOLD_position","striped"),position="center")
@@ -753,9 +754,12 @@ for(i in 1:11){
 fac%>%
   select(name,everything())%>%
   mutate(Freq=prettyNum(Freq,big.mark=","))%>%
-  kable(booktabs=T,longtable=T,digits=3,caption="Summary of Categorical Variables in Individual Data Set",align="c",
+  kable(booktabs=T,longtable=T,digits=3,
+        caption="Summary of Categorical Variables in Individual Data Set",
+        align="c",
         col.names=c("Variable","Value","Frequency"))%>%
-  kable_styling(latex_options=c("HOLD_position","repeat_header","striped"),position="center")%>%
+  kable_styling(latex_options=c("HOLD_position","repeat_header","striped"),
+                position="center")%>%
   collapse_rows(columns=1,latex_hline="major",valign="middle")
 ```
 
@@ -785,10 +789,13 @@ uni.plots<-function(dataset,rmCol=NULL){
             #axis.text.x=element_text(angle=45))
     }
   }
-  return(marrangeGrob(plots,nrow=5,ncol=2,top=textGrob("Univariate Plots",gp=gpar(fontsize=16,fontfamily="LM Roman 10"))))
+  return(marrangeGrob(plots,nrow=5,ncol=2,
+                      top=textGrob("Univariate Plots",
+                                   gp=gpar(fontsize=16,
+                                           fontfamily="LM Roman 10"))))
 }
 
-uni.plots(ind,c(2,15:17,19,21:24,26,28:length(ind)))
+uni.plots(ind,c(2,7:8,15:19,21:26,28:length(ind)))
 ```
 
 
@@ -853,98 +860,114 @@ as.data.frame(table(ind.f$icd2.desc))%>%
 
 ## Mapping
 
-```{r CountMapYear, fig.height=7}
+```{r CountMapYear, fig.height=6}
 map<-fortify(shp,region="ZCTA5CE10")
-map<- merge(map, agMonth%>%rename(id=zip)%>%group_by(id,year)%>%summarize(cases=sum(cases)), by="id", all.x = TRUE)
+map<- merge(map, agMonth%>%rename(id=zip)%>%group_by(id,year)%>%
+              summarize(cases=sum(cases)), by="id", all.x = TRUE)
 map<- map[order(map$order),]
 # 2000-2005
 ggplot()+
   geom_polygon(data=map[map$year<=2005,],
-               aes(long,lat,group=group,fill=cut(cases,c(-1,0,5,10,15,20,25,30,35))),color=NA)+
+               aes(long,lat,group=group,
+                   fill=cut(cases,c(-1,0,5,10,15,20,25,30,35))),color=NA)+
   coord_fixed(1.2)+
   facet_wrap(~year,ncol=2)+
   scale_fill_viridis(discrete=T,drop=F,na.value="antiquewhite",
                      labels =c("0","(0,5]","(5,10]","(10,15]",
                                "(15,20]","(20,25]","(25,30]",
                                "(30,35]"))+
-  labs(x="Longitude",y="Latitude",fill=NULL,title ="Observed Opioid Overdose Death Counts in MA")+
-  theme(legend.position = "bottom",legend.key.width=unit(2.5,"cm"),
-        legend.spacing.x = unit(.3, 'cm'),plot.title = element_text(hjust = 0.5),
-        text=element_text(family="LM Roman 10"))
-#2006-2011
-ggplot()+
-  geom_polygon(data=map[map$year<=2011&map$year>=2006,],
-               aes(long,lat,group=group,fill=cut(cases,c(-1,0,5,10,15,20,25,30,35))),color=NA)+
-  coord_fixed(1.2)+
-  facet_wrap(~year,ncol=2)+
-  scale_fill_viridis(discrete=T,drop=F,na.value="antiquewhite",
-                     labels =c("0","(0,5]","(5,10]","(10,15]",
-                               "(15,20]","(20,25]","(25,30]",
-                               "(30,35]"))+
-  labs(x="Longitude",y="Latitude",fill=NULL,title ="Observed Opioid Overdose Death Counts in MA")+
-  theme(legend.position = "bottom",legend.key.width=unit(2.5,"cm"),
-        legend.spacing.x = unit(.3, 'cm'),plot.title = element_text(hjust = 0.5),
-        text=element_text(family="LM Roman 10"))
-#2012-2017
-ggplot()+
-  geom_polygon(data=map[map$year<=2017&map$year>=2012,],
-               aes(long,lat,group=group,fill=cut(cases,c(-1,0,5,10,15,20,25,30,35))),color=NA)+
-  coord_fixed(1.2)+
-  facet_wrap(~year,ncol=2)+
-  scale_fill_viridis(discrete=T,drop=F,na.value="antiquewhite",
-                     labels =c("0","(0,5]","(5,10]","(10,15]",
-                               "(15,20]","(20,25]","(25,30]",
-                               "(30,35]"))+
-  labs(x="Longitude",y="Latitude",fill=NULL,title ="Observed Opioid Overdose Death Counts by Year")+
+  labs(x="Longitude",y="Latitude",fill=NULL,
+       title ="Observed Opioid Overdose Death Counts in MA")+
   theme(legend.position = "bottom",legend.key.width=unit(2.5,"cm"),
         legend.spacing.x = unit(.3, 'cm'),plot.title = element_text(hjust = 0.5),
         text=element_text(family="LM Roman 10"))
 ```
 
-```{r CountMapMonth}
-map<-fortify(shp,region="ZCTA5CE10")
-map<- merge(map, 
-            agMonth%>%
-              rename(id=zip)%>%
-              mutate(month=month(month,label=T,abbr=F))%>%
-              group_by(id,month)%>%
-              summarize(cases=sum(cases)), by="id", all.x = TRUE)
-map<- map[order(map$order),]
-# Jan-Jul
+\newpage
+
+```{r, fig.height=7}
+#2006-2011
 ggplot()+
-  geom_polygon(data=map[map$month=="January"|
-                        map$month=="February"|
-                        map$month=="March"|
-                        map$month=="April"|
-                        map$month=="May"|
-                        map$month=="June",],
-               aes(long,lat,group=group,fill=cut(cases,c(-1,0,5,10,15,20,25,30,35))),color=NA)+
+  geom_polygon(data=map[map$year<=2011&map$year>=2006,],
+               aes(long,lat,group=group,
+                   fill=cut(cases,c(-1,0,5,10,15,20,25,30,35))),color=NA)+
   coord_fixed(1.2)+
-  facet_wrap(~month,ncol=2)+
+  facet_wrap(~year,ncol=2)+
   scale_fill_viridis(discrete=T,drop=F,na.value="antiquewhite",
                      labels =c("0","(0,5]","(5,10]","(10,15]",
                                "(15,20]","(20,25]","(25,30]",
                                "(30,35]"))+
-  labs(x="Longitude",y="Latitude",fill=NULL,title ="Observed Opioid Overdose Death Counts in MA")+
+  labs(x="Longitude",y="Latitude",fill=NULL,
+       title ="Observed Opioid Overdose Death Counts in MA")+
   theme(legend.position = "bottom",legend.key.width=unit(2.5,"cm"),
         legend.spacing.x = unit(.3, 'cm'),plot.title = element_text(hjust = 0.5),
         text=element_text(family="LM Roman 10"))
-# Aug-Dec
+```
+
+\newpage
+
+```{r, fig.height=7}
+#2012-2017
 ggplot()+
-  geom_polygon(data=map[map$month=="July"|
-                        map$month=="August"|
-                        map$month=="September"|
-                        map$month=="October"|
-                        map$month=="November"|
-                        map$month=="December",],
-               aes(long,lat,group=group,fill=cut(cases,c(-1,0,5,10,15,20,25,30,35))),color=NA)+
+  geom_polygon(data=map[map$year<=2017&map$year>=2012,],
+               aes(long,lat,group=group,
+                   fill=cut(cases,c(-1,0,5,10,15,20,25,30,35))),color=NA)+
   coord_fixed(1.2)+
-  facet_wrap(~month,ncol=2)+
+  facet_wrap(~year,ncol=2)+
   scale_fill_viridis(discrete=T,drop=F,na.value="antiquewhite",
                      labels =c("0","(0,5]","(5,10]","(10,15]",
                                "(15,20]","(20,25]","(25,30]",
                                "(30,35]"))+
-  labs(x="Longitude",y="Latitude",fill=NULL,title ="Observed Opioid Overdose Death Counts in MA")+
+  labs(x="Longitude",y="Latitude",fill=NULL,
+       title ="Observed Opioid Overdose Death Counts by Year")+
+  theme(legend.position = "bottom",legend.key.width=unit(2.5,"cm"),
+        legend.spacing.x = unit(.3, 'cm'),plot.title = element_text(hjust = 0.5),
+        text=element_text(family="LM Roman 10"))
+```
+
+\newpage
+
+```{r CountMapMonth, fig.height=6}
+map<-fortify(shp,region="ZCTA5CE10")
+map<- merge(map, 
+            agMonth%>%rename(id=zip)%>%mutate(month=month(month,label=T,abbr=F))%>%
+              group_by(id,month)%>%summarize(cases=sum(cases)), by="id", all.x = TRUE)
+map<- map[order(map$order),]
+# Jan-Jul
+ggplot()+
+  geom_polygon(data=map[map$month=="January"|map$month=="February"|map$month=="March"|
+                        map$month=="April"|map$month=="May"|map$month=="June",],
+               aes(long,lat,group=group,
+                   fill=cut(cases,c(-1,0,5,10,15,20,25,30,35))),color=NA)+
+  coord_fixed(1.2)+
+  facet_wrap(~month,ncol=2)+
+  scale_fill_viridis(discrete=T,drop=F,na.value="antiquewhite",
+                     labels =c("0","(0,5]","(5,10]","(10,15]","(15,20]","(20,25]",
+                               "(25,30]","(30,35]"))+
+  labs(x="Longitude",y="Latitude",fill=NULL,
+       title ="Observed Opioid Overdose Death Counts in MA")+
+  theme(legend.position = "bottom",legend.key.width=unit(2.5,"cm"),
+        legend.spacing.x = unit(.3, 'cm'),plot.title = element_text(hjust = 0.5),
+        text=element_text(family="LM Roman 10"))
+```
+
+\newpage
+
+```{r, fig.height=7}
+# Aug-Dec
+ggplot()+
+  geom_polygon(data=map[map$month=="July"|map$month=="August"|
+                        map$month=="September"|map$month=="October"|
+                        map$month=="November"|map$month=="December",],
+               aes(long,lat,group=group,
+                   fill=cut(cases,c(-1,0,5,10,15,20,25,30,35))),color=NA)+
+  coord_fixed(1.2)+
+  facet_wrap(~month,ncol=2)+
+  scale_fill_viridis(discrete=T,drop=F,na.value="antiquewhite",
+                     labels =c("0","(0,5]","(5,10]","(10,15]","(15,20]",
+                               "(20,25]","(25,30]","(30,35]"))+
+  labs(x="Longitude",y="Latitude",fill=NULL,
+       title ="Observed Opioid Overdose Death Counts in MA")+
   theme(legend.position = "bottom",legend.key.width=unit(2.5,"cm"),
         legend.spacing.x = unit(.3, 'cm'),plot.title = element_text(hjust = 0.5),
         text=element_text(family="LM Roman 10"))
