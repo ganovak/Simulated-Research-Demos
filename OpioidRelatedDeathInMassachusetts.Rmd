@@ -635,6 +635,7 @@ ind.f<-ind%>%
                                 "DIED AND RESIDE IN DIFFERENT CITIES")))
 
 #### Class conversions ####
+# Necessitated by simulated data, not included in actual analysis
 ind.f$dcity<-as.character(ind.f$dcity)
 ind.f$ddad<-as.character(ind.f$ddad)
 ind.f$dfacilitynum<-as.character(ind.f$dfacilitynum)
@@ -665,8 +666,12 @@ ind.f$resnat<-as.character(ind.f$resnat)
 ind.f$resstate<-as.character(ind.f$resstate)
 ind.f$reszip<-as.character(ind.f$reszip)
 ind.f$sfnum<-as.character(ind.f$sfnum)
+```
 
-head(ind.f)
+\newpage
+
+```{r}
+head(ind.f,2)
 ```
 
 \newpage
@@ -772,13 +777,15 @@ ind.f%>%
                          format(range(value,na.rm=T)[1],"%b %d, %Y"),"; ",
                          format(range(value,na.rm=T)[2],"%b %d, %Y"),"]"),
             UniqueValues=length(unique(value[!is.na(value)])),
-            mean=mean(value,na.rm=T),
+            # In vital data, sometimes death date is unknown
             PropMissingness=paste0(sum(is.na(value))/length(value),"%"))%>%
   kable(booktabs=T,digits=3,
         caption="Summary of Date Variables in Individual Data Set",align="c",
         col.names=c("Variable","Range","Unique Values","Missingness"))%>%
   kable_styling(latex_options=c("HOLD_position","striped"),position="center")
 ```
+
+\newpage
 
 ## Univariate Graphics Loop
 
@@ -790,20 +797,29 @@ uni.plots<-function(dataset,rmCol=NULL){
   else{data<-dataset[,-rmCol]}
   plots<-list()
   for (i in 1:length(data)){
+    # Numeric variables
     if (is.numeric(data[[i]])){
       plots[[i]]<- ggplot(data,aes_string(x=colnames(data[i])))+
                     geom_histogram()+
                     xlab(colnames(data[i]))+
                     ylab("count")+
                     theme(text=element_text(family="LM Roman 10"))
-                    #axis.text.x=element_text(angle=45))
     } else {
-      plots[[i]]<- ggplot(data,aes_string(x=colnames(data[i])))+
-      geom_bar()+
-      xlab(colnames(data[i]))+
-      ylab("count")+
-      theme(text=element_text(family="LM Roman 10"))
-            #axis.text.x=element_text(angle=45))
+      # Date variables
+      if (is.Date(data[[i]])){
+        plots[[i]]<- ggplot(data,aes_string(x=colnames(data[i])))+
+                    geom_freqpoly()+
+                    xlab(colnames(data[i]))+
+                    ylab("count")+
+                    theme(text=element_text(family="LM Roman 10"))
+      } else {
+        # Character / factor variables
+        plots[[i]]<- ggplot(data,aes_string(x=colnames(data[i])))+
+        geom_bar()+
+        xlab(colnames(data[i]))+
+        ylab("count")+
+        theme(text=element_text(family="LM Roman 10"))
+      }
     }
   }
   return(marrangeGrob(plots,nrow=5,ncol=2,
@@ -812,6 +828,9 @@ uni.plots<-function(dataset,rmCol=NULL){
                                            fontfamily="LM Roman 10"))))
 }
 
+# Uses coded data for clarity of axis labels
+# Coded variables treated as numeric even though usually categorical
+# Not an issue since EDA is not used for presentation
 uni.plots(ind,c(2,7:8,15:19,21:26,28:length(ind)))
 ```
 
@@ -855,19 +874,16 @@ ind.f<-ind.f%>%
   rename(icd15.desc=LongDesc)%>%
   left_join(icd10[,c(2,5)],by=c("icd16"="ICD10Code"))%>%
   rename(icd16.desc=LongDesc)
+```
 
+\newpage
+
+```{r}
 #### Primary ####
+# For illustration, project examined secondary and tertiary causes as well
 as.data.frame(table(ind.f$icd1.desc))%>%
   top_n(5,Freq)%>%
   kable(booktabs=T,digits=3,longtable=T,caption="Summary of Primary Causes of Death",align="c",
-        col.names=c("Cause of Death","Frequency"))%>%
-  kable_styling(latex_options=c("HOLD_position","striped","repeat_header"),position="center")%>%
-  column_spec(1,width="8in")
-
-#### Secondary ####
-as.data.frame(table(ind.f$icd2.desc))%>%
-  top_n(5,Freq)%>%
-  kable(booktabs=T,digits=3,longtable=T,caption="Summary of Secondary Causes of Death",align="c",
         col.names=c("Cause of Death","Frequency"))%>%
   kable_styling(latex_options=c("HOLD_position","striped","repeat_header"),position="center")%>%
   column_spec(1,width="8in")
