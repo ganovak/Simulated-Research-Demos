@@ -528,6 +528,7 @@ occup<-data.frame(occup)%>%
 
 #### Subsetting icd10 codes ####
 # To replicate repetition in actual data set
+# Header indicates if it it a HIPAA valid code
 icd10<-sample_n(icd10[icd10$Header==1,],20000)
 
 #### Coded data ####
@@ -636,7 +637,6 @@ ind.f<-ind%>%
 #### Class conversions ####
 ind.f$dcity<-as.character(ind.f$dcity)
 ind.f$ddad<-as.character(ind.f$ddad)
-# ind$ddate<-as.character(ind$ddate)
 ind.f$dfacilitynum<-as.character(ind.f$dfacilitynum)
 ind.f$dnat<-as.character(ind.f$dnat)
 ind.f$dstate<-as.character(ind.f$dstate)
@@ -675,6 +675,7 @@ head(ind.f)
 
 ```{r}
 # All possible combination of month, year, and zip
+# Data set intended to be mapped so 0 is preferable over NA
 base<-data.frame(zip=rep(shp@data$ZCTA5CE10,(12*18)),
                  month=rep(c(rep(1,538),rep(2,538),rep(3,538),rep(4,538),
                          rep(5,538),rep(6,538),rep(7,538),rep(8,538),
@@ -761,6 +762,15 @@ fac%>%
   kable_styling(latex_options=c("HOLD_position","repeat_header","striped"),
                 position="center")%>%
   collapse_rows(columns=1,latex_hline="major",valign="middle")
+
+#### Date Variables ####
+ind.f%>%
+  select(names(ind.f[map_lgl(ind.f,is.Date)]))%>%
+  gather(variable,value)%>%
+  group_by(variable)%>%
+  summarize(range=paste0("[",range(value,na.rm=T)[1],", ",range(value,na.rm=T)[2],"]"),
+            UniqueValues=length(unique(value[!is.na(value)])),
+            PropMissingness=sum(is.na(value))/length(value))
 ```
 
 ## Univariate Graphics Loop
