@@ -768,9 +768,16 @@ ind.f%>%
   select(names(ind.f[map_lgl(ind.f,is.Date)]))%>%
   gather(variable,value)%>%
   group_by(variable)%>%
-  summarize(range=paste0("[",range(value,na.rm=T)[1],", ",range(value,na.rm=T)[2],"]"),
+  summarize(range=paste0("[",
+                         format(range(value,na.rm=T)[1],"%b %d, %Y"),"; ",
+                         format(range(value,na.rm=T)[2],"%b %d, %Y"),"]"),
             UniqueValues=length(unique(value[!is.na(value)])),
-            PropMissingness=sum(is.na(value))/length(value))
+            mean=mean(value,na.rm=T),
+            PropMissingness=paste0(sum(is.na(value))/length(value),"%"))%>%
+  kable(booktabs=T,digits=3,
+        caption="Summary of Date Variables in Individual Data Set",align="c",
+        col.names=c("Variable","Range","Unique Values","Missingness"))%>%
+  kable_styling(latex_options=c("HOLD_position","striped"),position="center")
 ```
 
 ## Univariate Graphics Loop
