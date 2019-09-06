@@ -289,3 +289,8 @@ bvl2010<-bvl2010%>%
 head(bvl2000)
 ```
 
+```{r}
+data
+```
+
+data(id2,time,tract,stratum,diabetes,employ,insure), multiple visit length 10000, single id version 7811, set.seed 09062019
