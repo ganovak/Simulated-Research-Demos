@@ -1,0 +1,291 @@
+---
+title: "Diabetes Prevalence in Brownsville, Texas"
+subtitle: "Simulated Demo"
+author: "Gabby Novak"
+output: pdf_document
+header-includes:
+- \usepackage{pdflscape}
+- \newcommand{\blandscape}{\begin{landscape}}
+- \newcommand{\elandscape}{\end{landscape}}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      message=F,
+                      error=F,
+                      warning=F,
+                      fig.height=11,
+                      fig.width=8)
+setwd("D:/Simulated-Research-Demos/DiabetesPrevalenceInBrownsvilleTexas")
+```
+
+```{r}
+#### Packages ####
+library(tigris)
+library(knitr)
+library(kableExtra)
+library(viridis)
+library(extrafont)
+library(tidyverse)
+library(lubridate)
+library(rgdal)
+library(survey)
+library(INLA)
+```
+
+This project used data from the Cameron County Hispanic Cohort (CCHC) gathered by the University of Texas School of Public Health. The cohort collects health information on Hispanic individuals living in far-Southern Texas through a battery of questionaires, physical examinations, and labratory tests. My team sought to apply the techniques of geospatial anslysis to examine the variation of diabetes prevalence by census tract in the center Brownsville area in service of the identification of risk factors and better targetted interventions. This is not public data and results have not yet been published. For these reasons, I will be preforming similar analysis on a simulated data set. This simulation is additionally once removed from the original data set in that it only includes variables relevant to the actual analysis preformed. For this reason, much of the code used for the processing and cleaning of the cohort data is omitted from this.
+
+The data we were working with spanned 2004 to 2018. However, we were examining prevalence on a Census Tract level (a geographic unit used by the US Census Beauru), and these vary according to population fluctuation. This meant that the 2010 census included tract numbers that did not exist in the 2000 census and vice versa. Additionally, a few tract borders shifted. All credit goes to Yunyun Jiang at University of Texas School of Pulic Health for developing the tract conversion procedure. 
+
+# Writing Mapping Objects 
+
+**The code below was only run once ** as it writes mapping files. These files were shared with the team and imported for use in the analysis. 
+
+Tract mapping files were downloaded using the `tigris` package which sources them directly from the Census Beauru's website. 
+
+```{}
+#### Import base map, NOT RUN ####
+
+tractmap2000<-tracts("TX",county="Cameron",year=2000)
+tractmap2010<-tracts("TX",county="Cameron",year=2010)
+
+# Get rid of problematic trailing zero
+tractmap2000@data$NAME00[tractmap2000@data$NAME00=="126.10"]<-126.1
+```
+
+The study area was chosen based on data collection and then slightly modified to maintain the exterior borders between time periods (2004-2009 and 2010-2018).
+
+```{r}
+#### Define study area ####
+focus00<-c("125.04","125.07","126.04","126.05","126.06","126.07","126.08","126.09","126.1","126.11",
+           "126.12","126.13","128","129","130.02","130.03","130.04","131.02","131.04","131.06",
+           "132.03","132.04","132.05","132.06","132.07","132.08","133.03","133.04","133.05","133.06",
+           "133.07","133.08","133.09","134.01","134.02","135","136","137","138.01","138.02",
+           "139.01","139.02","139.03","140.01","140.02","141")
+# n tracts 2000 = 46
+
+focus10<-c("125.04","125.07","126.07","126.08","126.09","126.12","126.13","128","129","130.02",
+           "130.03","130.04","131.02","131.04","131.06","132.03","132.04","132.05","132.06","132.07",
+           "133.03","133.05","133.06","133.07","133.08","133.09","134.01","134.02","135","136",
+           "137","138.01","138.02","139.01","139.02","139.03","140.01","140.02","141","143",
+           "144","145","9801")
+# n tracts 2010 = 43
+```
+
+```{}
+#### Subset mapping objects, NOT RUN ####
+focusmap00<-tractmap2000[tractmap2000@data$NAME00 %in% focus00,]
+focusmap10<-tractmap2010[tractmap2010@data$NAME10 %in% focus10,]
+
+#### Write mapping files, NOT RUN ####
+writeOGR(obj = focusmap00,layer="focusmap00",
+         dsn = "focusmap00.shp",
+         driver="ESRI Shapefile")
+writeOGR(obj = focusmap10,layer="focusmap10",
+         dsn = "focusmap10.shp",
+         driver="ESRI Shapefile")
+```
+
+`writeOGR` function creates 4 mapping objects, all are referenced later.
+
+# Preparing Mapping Objects
+
+```{r}
+#### Read in Spatial Objects ####
+# For source, see code above
+focusmap2000<-readOGR("focusmap00.shp")
+focusmap2010<-readOGR("focusmap10.shp")
+
+#### Create ggplot-able objects ####
+focusmap00<-fortify(focusmap2000, region="NAME00")
+focusmap10<-fortify(focusmap2010, region="NAME10")
+
+#### Ensure correct plotting order ####
+
+focusmap00<-focusmap00[order(focusmap00$order),]
+focusmap10<-focusmap10[order(focusmap10$order),]
+
+#### Labeling Centroids ####
+
+# 2000
+# Simplifies each geographic region into 1 coordinate at the rought center of each group
+names00 <- aggregate(cbind(long, lat) ~ id, data=focusmap00, 
+                     FUN=function(x)mean(range(x)))
+# Adjusts for more legible labels
+names00$long[names00$id==133.04]<-names00$long[names00$id==133.04]+.007
+names00$long[names00$id==133.07]<-names00$long[names00$id==133.07]+.0105
+names00$lat[names00$id==133.07]<-names00$lat[names00$id==133.07]+.005
+names00$lat[names00$id==133.09]<-names00$lat[names00$id==133.09]-.004
+names00$lat[names00$id==133.08]<-names00$lat[names00$id==133.08]+.004
+names00$long[names00$id==132.07]<-names00$long[names00$id==132.07]+.004
+names00$lat[names00$id==132.07]<-names00$lat[names00$id==132.07]-.004
+names00$lat[names00$id==132.06]<-names00$lat[names00$id==132.06]+.004
+names00$lat[names00$id==132.04]<-names00$lat[names00$id==132.04]-.004
+names00$lat[names00$id==132.05]<-names00$lat[names00$id==132.05]+.0035
+names00$long[names00$id==133.03]<-names00$long[names00$id==133.03]+.003
+names00$lat[names00$id==133.03]<-names00$lat[names00$id==133.03]-.003
+names00$long[names00$id==128]<-names00$long[names00$id==128]-.005
+names00$lat[names00$id==128]<-names00$lat[names00$id==128]+.01
+names00$lat[names00$id==130.02]<-names00$lat[names00$id==130.02]+.005
+names00$lat[names00$id==130.03]<-names00$lat[names00$id==130.03]-.005
+names00$long[names00$id==134.01]<-names00$long[names00$id==134.01]-.005
+names00$lat[names00$id==134.01]<-names00$lat[names00$id==134.01]+.004
+names00$long[names00$id==133.05]<-names00$long[names00$id==133.05]+.005
+names00$lat[names00$id==126.13]<-names00$lat[names00$id==126.13]-.004
+names00$long[names00$id==126.07]<-names00$long[names00$id==126.07]-.008
+names00$lat[names00$id==126.07]<-names00$lat[names00$id==126.07]-.003
+names00$long[names00$id==140.01]<-names00$long[names00$id==140.01]+.005
+names00$lat[names00$id==140.01]<-names00$lat[names00$id==140.01]-.005
+
+# 2010
+names10 <- aggregate(cbind(long, lat) ~ id, data=focusmap10, 
+                     FUN=function(x)mean(range(x)))
+
+names10$long[names10$id==133.07]<-names10$long[names10$id==133.07]+.007
+names10$lat[names10$id==133.07]<-names10$lat[names10$id==133.07]+.005
+names10$lat[names10$id==133.09]<-names10$lat[names10$id==133.09]-.004
+names10$lat[names10$id==133.08]<-names10$lat[names10$id==133.08]+.004
+names10$long[names10$id==132.07]<-names10$long[names10$id==132.07]+.004
+names10$lat[names10$id==132.07]<-names10$lat[names10$id==132.07]-.004
+names10$lat[names10$id==132.06]<-names10$lat[names10$id==132.06]+.004
+names10$lat[names10$id==132.04]<-names10$lat[names10$id==132.04]-.004
+names10$lat[names10$id==132.05]<-names10$lat[names10$id==132.05]+.0035
+names10$long[names10$id==133.03]<-names10$long[names10$id==133.03]+.003
+names10$lat[names10$id==133.03]<-names10$lat[names10$id==133.03]-.003
+names10$long[names10$id==128]<-names10$long[names10$id==128]-.005
+names10$lat[names10$id==128]<-names10$lat[names10$id==128]+.01
+names10$lat[names10$id==130.02]<-names10$lat[names10$id==130.02]+.005
+names10$lat[names10$id==130.03]<-names10$lat[names10$id==130.03]-.005
+names10$long[names10$id==134.01]<-names10$long[names10$id==134.01]-.005
+names10$lat[names10$id==134.01]<-names10$lat[names10$id==134.01]+.004
+names10$long[names10$id==133.05]<-names10$long[names10$id==133.05]+.005
+names10$lat[names10$id==126.13]<-names10$lat[names10$id==126.13]-.004
+names10$long[names10$id==126.07]<-names10$long[names10$id==126.07]-.008
+names10$lat[names10$id==126.07]<-names10$lat[names10$id==126.07]-.003
+names10$long[names10$id==140.01]<-names10$long[names10$id==140.01]+.005
+names10$lat[names10$id==140.01]<-names10$lat[names10$id==140.01]-.005
+```
+
+At this point, objects are ready to be mapping in `ggplot2` and label locations are stored and legible. Even without data, we can still plot the map and label them with the tract numbers. This was a useful reference throughout the analysis.
+
+## Mapping Tract Numbers
+
+```{r, fig.height=7}
+# 2000
+ggplot()+
+    geom_polygon(data=focusmap00,aes(long,lat,group=group)
+                 ,color="light grey", fill="dark grey")+
+     coord_fixed(1.2)+
+     labs(x="Longitude",y="Latitude",title="2000 Tract Numbers")+
+     theme(plot.title = element_text(hjust = 0.5))+
+     geom_label(data=names00,aes(long,lat,label=id),size=2.5,
+                label.padding = unit(.15,"lines"))
+
+# 2010
+ggplot()+
+    geom_polygon(data=focusmap10,aes(long,lat,group=group),
+                 color="light grey", fill="dark grey")+
+    coord_fixed(1.2)+
+    labs(x="Longitude",y="Latitude",title="2010 Tract Numbers")+
+    theme(plot.title = element_text(hjust = 0.5))+
+    geom_label(data=names10,aes(long,lat,label=id),size=2.5,
+               label.padding = unit(.15,"lines"))
+```
+
+# Census Data Processing
+
+Data was pulled from the US Census Beurau website for use in the weighting procedure. The census numbers are, of course, estimates in and of themselves. They are also based on a sample design and may not account for undocumented individuals who may be particularly prevalent so close to the US/Mexico border.
+
+```{r}
+#### Import census data ####
+
+# Source: https://factfinder.census.gov/faces/nav/jsf/pages/index.xhtml
+# Form: 2010 100% Data Short Form 1 Sex by Age (Hispanic or Latino) (DEC 10 SF1 P12H)
+# Geography: Census Tracts in Cameron County, Texas
+brownsville2010virgin<-read_csv("DEC_10_SF1_P12H_with_ann.csv", col_names=TRUE,skip=1)
+
+# Source: https://factfinder.census.gov/faces/nav/jsf/pages/index.xhtml
+# Form: 2000 100% Data Short Form 1 Sex by Age (Hispanic or Latino) (DEC 00 SF1 P012H)
+# Geography: Census Tracts in Cameron County, Texas
+brownsville2000virgin<-read_csv("DEC_00_SF1_P012H_with_ann.csv", col_names=TRUE,skip=1)
+```
+
+The Census Beurau uses much narrower age categories than we needed. Weighting for this analysis was based on two genders and three age groups (18-34,35-64,65+) for a total of six age-gender strata.The following function takes the census data and restructures it to provide populations for our strata of interest.  
+
+```{r}
+#### Function ####
+# Input: Read in variations of census SF1 P12 (Sex by Age)
+# Output: Data frame with population by stratum per tract
+P12cleaning<-function(dataset){
+  # Restructuring geography column
+  geonum<-unique(map_dbl(.x=dataset$Geography,.f=~str_count(.x,",")+1))
+  dataset<-dataset%>%
+    mutate(Geography=str_remove_all(Geography, " "),
+           Geography=str_remove_all(Geography,"[a-zA-Z]"),
+           Geography=str_remove_all(Geography,"[[:punct:]-[.]]"))%>%
+    # Gives character number coumn names from 1 to number of geographies specified
+    separate(Geography,into=as.character(seq(from=1,to=geonum,by=1)),sep=",")%>%
+    # Removes id and total columns
+    select(-Id,-Id2,-`Total:`,-`Female:`,-`Male:`)%>%
+    # Removes extraneous former-geography columns
+    select(tract=1,last_col(offset=0:45))
+  # Creating legible column names
+  vars<-list()
+  for(x in 1:length(colnames(dataset))){
+    if(str_detect(colnames(dataset[x]),"[[:punct:]]"))
+    {newname<-str_remove(colnames(dataset[x]),"[[:punct:]]")}
+    else{newname<-colnames(dataset[x])}
+    vars[x]<-newname
+    if(str_detect(vars[x],"^Male - "))
+    {newname<-str_replace(vars[x],"Male - ","m_")}
+    else{newname<-vars[x]}
+    vars[x]<-newname
+    if(str_detect(vars[x],"^Female - "))
+    {newname<-str_replace(vars[x],"Female - ","f_")}
+    else{newname<-vars[x]}
+    vars[x]<-newname
+    if(str_detect(vars[x]," to "))
+    {newname<-str_replace(vars[x]," to ","_")}
+    else{newname<-vars[x]}
+    vars[x]<-newname
+    if(str_detect(vars[x]," and "))
+    {newname<-str_replace(vars[x]," and ","_")}
+    else{newname<-vars[x]}
+    vars[x]<-newname
+    if(str_detect(vars[x]," years"))
+    {newname<-str_remove(vars[x]," years")}
+    else{newname<-vars[x]}
+    vars[x]<-newname
+    if(str_detect(vars[x],"Under "))
+    {newname<-str_replace(vars[x],"Under ","0_")}
+    else{newname<-vars[x]}
+    vars[x]<-newname}
+  colnames(dataset)<-vars
+  # Stratify
+  dataset<-dataset%>%
+    group_by(tract)%>%
+    summarize(m_18_34=sum(m_18_19,m_20,m_21,m_22_24,m_25_29,m_30_34),
+              f_18_34=sum(f_18_19,f_20,f_21,f_22_24,f_25_29,f_30_34),
+              m_35_64=sum(m_35_39,m_40_44,m_45_49,m_50_54,m_55_59,m_60_61,m_62_64),
+              f_35_64=sum(f_35_39,f_40_44,m_45_49,f_50_54,f_55_59,f_60_61,f_62_64),
+              m_65_over=sum(m_65_66,m_67_69,m_70_74,m_75_79,m_80_84,m_85_over),
+              f_65_over=sum(f_65_66,f_67_69,f_70_74,f_75_79,f_80_84,f_85_over))
+  return(dataset)
+}
+
+#### Manipulate Format ####
+bvl2000<-P12cleaning(brownsville2000virgin)
+# The trailing zero causes matching problems when converted to numeric
+bvl2000$tract[bvl2000$tract=="126.10"]<-126.1
+# Filter to only include data on the tracts we are interested in
+bvl2000<-bvl2000%>%
+  filter(tract %in% focus00)
+
+bvl2010<-P12cleaning(brownsville2010virgin)
+bvl2010<-bvl2010%>%
+  filter(tract %in% focus10)
+
+#### Illustration of output ####
+head(bvl2000)
+```
+
