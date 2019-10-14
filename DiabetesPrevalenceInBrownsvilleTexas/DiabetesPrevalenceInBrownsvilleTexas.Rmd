@@ -37,6 +37,8 @@ This project used data from the Cameron County Hispanic Cohort (CCHC) gathered b
 
 The data we were working with spanned 2004 to 2018. However, we were examining prevalence on a Census Tract level (a geographic unit used by the US Census Beauru), and these vary according to population fluctuation. This meant that the 2010 census included tract numbers that did not exist in the 2000 census and vice versa. Additionally, a few tract borders shifted. All credit goes to Yunyun Jiang at University of Texas School of Pulic Health for developing the tract conversion procedure. 
 
+\newpage
+
 # Writing Mapping Objects 
 
 **The code below was only run once ** as it writes mapping files. These files were shared with the team and imported for use in the analysis. 
@@ -57,18 +59,19 @@ The study area was chosen based on data collection and then slightly modified to
 
 ```{r}
 #### Define study area ####
-focus00<-c("125.04","125.07","126.04","126.05","126.06","126.07","126.08","126.09","126.1","126.11",
-           "126.12","126.13","128","129","130.02","130.03","130.04","131.02","131.04","131.06",
-           "132.03","132.04","132.05","132.06","132.07","132.08","133.03","133.04","133.05","133.06",
-           "133.07","133.08","133.09","134.01","134.02","135","136","137","138.01","138.02",
-           "139.01","139.02","139.03","140.01","140.02","141")
+focus00<-c("125.04","125.07","126.04","126.05","126.06","126.07","126.08","126.09",
+           "126.1","126.11","126.12","126.13","128","129","130.02","130.03","130.04",
+           "131.02","131.04","131.06","132.03","132.04","132.05","132.06","132.07",
+           "132.08","133.03","133.04","133.05","133.06","133.07","133.08","133.09",
+           "134.01","134.02","135","136","137","138.01","138.02","139.01","139.02",
+           "139.03","140.01","140.02","141")
 # n tracts 2000 = 46
 
-focus10<-c("125.04","125.07","126.07","126.08","126.09","126.12","126.13","128","129","130.02",
-           "130.03","130.04","131.02","131.04","131.06","132.03","132.04","132.05","132.06","132.07",
-           "133.03","133.05","133.06","133.07","133.08","133.09","134.01","134.02","135","136",
-           "137","138.01","138.02","139.01","139.02","139.03","140.01","140.02","141","143",
-           "144","145","9801")
+focus10<-c("125.04","125.07","126.07","126.08","126.09","126.12","126.13","128","129",
+           "130.02","130.03","130.04","131.02","131.04","131.06","132.03","132.04",
+           "132.05","132.06","132.07","133.03","133.05","133.06","133.07","133.08",
+           "133.09","134.01","134.02","135","136","137","138.01","138.02","139.01",
+           "139.02","139.03","140.01","140.02","141","143","144","145","9801")
 # n tracts 2010 = 43
 ```
 
@@ -87,6 +90,8 @@ writeOGR(obj = focusmap10,layer="focusmap10",
 ```
 
 `writeOGR` function creates 4 mapping objects, all are referenced later.
+
+\newpage
 
 # Preparing Mapping Objects
 
@@ -168,6 +173,8 @@ names10$lat[names10$id==140.01]<-names10$lat[names10$id==140.01]-.005
 
 At this point, objects are ready to be mapping in `ggplot2` and label locations are stored and legible. Even without data, we can still plot the map and label them with the tract numbers. This was a useful reference throughout the analysis.
 
+\newpage
+
 ## Mapping Tract Numbers
 
 ```{r, fig.height=7}
@@ -180,7 +187,11 @@ ggplot()+
      theme(plot.title = element_text(hjust = 0.5))+
      geom_label(data=names00,aes(long,lat,label=id),size=2.5,
                 label.padding = unit(.15,"lines"))
+```
 
+\newpage
+
+```{r, fig.height=7}
 # 2010
 ggplot()+
     geom_polygon(data=focusmap10,aes(long,lat,group=group),
@@ -191,6 +202,8 @@ ggplot()+
     geom_label(data=names10,aes(long,lat,label=id),size=2.5,
                label.padding = unit(.15,"lines"))
 ```
+
+\newpage
 
 # Census Data Processing
 
@@ -289,6 +302,8 @@ bvl2010<-bvl2010%>%
 head(bvl2000)
 ```
 
+\newpage
+
 # Simulating Data
 
 ```{r}
@@ -296,23 +311,29 @@ set.seed(09062019)
 #### Multiple Visit Data ####
 datamult<-data.frame(
   id=sample(0:5000,10000,replace=T),
-  visitdate=sample(seq(as.Date("2004-01-01"),as.Date("2018-12-31"),by="day"),10000,replace=T),
+  visitdate=sample(seq(as.Date("2004-01-01"),as.Date("2018-12-31"),by="day"),
+                   10000,replace=T),
   age=sample(18:100,10000,replace=T),
   insure=sample(0:1,10000,replace=T),
   employ=sample(0:1,10000,replace=T),
   diabetes=sample(0:1,10000,replace=T))
 
-datamult$time<-map_chr(.x=datamult$visitdate,.f=~if(.x>as.Date("2010-01-01")){return("post")}else{return("pre")})
+datamult$time<-map_chr(.x=datamult$visitdate,
+                       .f=~if(.x>as.Date("2010-01-01"))
+                         {return("post")}else{return("pre")})
 datamult$id2<-paste0(datamult$id,datamult$time)
 
 demos <- data.frame(id=unique(datamult$id),
-                    gender=sample(c("male","female"),length(unique(datamult$id)),replace=T),
+                    gender=sample(c("male","female"),
+                                  length(unique(datamult$id)),replace=T),
                     tract=sample(focus00,length(unique(datamult$id)),replace=T),
-                    edu=sample(c("Less than High School","High School / GED","Post-Secondary School"),
+                    edu=sample(c("Less than High School","High School / GED",
+                                 "Post-Secondary School"),
                                length(unique(datamult$id)),replace=T))
 
 datamult <- datamult%>%
   left_join(demos,by="id")%>%
+  mutate(tract=as.character(tract))%>%
   select(id,id2,time,visitdate,tract,gender,age,edu,insure,employ,diabetes)
 
 #### Single ID Data ####
@@ -339,6 +360,8 @@ head(data)
   
 ```
 
+\newpage
+
 # Data Cleaning
 
 ## Tract Conversion
@@ -353,16 +376,17 @@ data <- data%>%
                                     ifelse(tract==126.1,145,
                                            ifelse(tract==126.11,145,
                                                   ifelse(tract==132.08,141,
-                                                         ifelse(tract==133.04,143,tract))))))))
+                                                         ifelse(tract==133.04,143,
+                                                                tract))))))))
 ```
 
 ## Constant information per ID
 
 ```{r}
 #### Function ####
-# Input: Dataset and 2 specified variables, the grouping variable and the information variable
-# Output: TRUE if information variable is constant for each level of the grouping variable,
-#         FALSE if if information variable differs for each level of the grouping variable
+# Input: Dataset and the grouping variable and the information variable
+# Output: TRUE if information variable is constant for each level of grouping variable,
+#         FALSE if if information variable differs for each level of grouping variable
 constant <- function(data, variable, grouping){
   grouping <- enquo(grouping)
   variable <- enquo(variable)
@@ -393,6 +417,8 @@ constant(x, col3, col1)
 ```
 In this case the function returns FALSE because for each value in `col1` (1), there are multiple values of `col3` (1 and 2). 
 
+\newpage
+
 # Follow Up
 
 Follow up has to be calcuated from the `multdata` data set because `data` drops the individual visit dates. 
@@ -404,8 +430,10 @@ followup <- datamult%>%
   summarize(visits=n_distinct(visitdate),
             first=min(visitdate),
             last=max(visitdate))%>%
-  mutate(followup=time_length(interval(start=first,end=last,tzone="Etc/GMT-5"),unit="months"),
-         followup2=as.period(interval(start=first,end=last,tzone="Etc/GMT-5"),unit="months"))%>%
+  mutate(followup=time_length(interval(start=first,end=last,tzone="Etc/GMT-5"),
+                              unit="months"),
+         followup2=as.period(interval(start=first,end=last,tzone="Etc/GMT-5"),
+                             unit="months"))%>%
   summarize(no.part=n(), # total subjects
             mean.visit=mean(visits),
             sd.visit=sd(visits),
@@ -437,15 +465,18 @@ followup <- datamult%>%
                         sd.follow=sd(followup),
                         max.follow=max(followup),
                         min.follow=min(followup))%>%
-              bind_cols(datamult%>%group_by(time)%>%summarize(tot.visit=n())))%>% # total visits
+              # total visits
+              bind_cols(datamult%>%group_by(time)%>%summarize(tot.visit=n())))%>% 
   mutate(var=c("Overall","2010-2018","2004-2009"),
          range.visit=paste0("[",min.visit,", ",max.visit,"]"),
-         range.follow=paste0("[",round(min.follow,2),", ",round(max.follow,2),"]"," (~",round(max.follow/12,1)," years)"),
+         range.follow=paste0("[",round(min.follow,2),", ",
+                             round(max.follow,2),"]"," (~",round(max.follow/12,1)," years)"),
          mean.follow=paste0(round(mean.follow,2)," (~",round(mean.follow/12,1)," years)"),
          sd.follow=paste0(round(sd.follow,2)," (~",round(sd.follow/12,1)," years)"),
          order=c(1,3,2))%>%
   arrange(order)%>%
-  select(var,no.part,tot.visit,mean.visit,sd.visit,range.visit,mean.follow,sd.follow,range.follow)
+  select(var,no.part,tot.visit,mean.visit,sd.visit,range.visit,
+         mean.follow,sd.follow,range.follow)
 
 #### Formatting ####
 
@@ -457,11 +488,13 @@ followup%>%
   mutate(no.part=prettyNum(no.part,big.mark=","),
          tot.visit=prettyNum(tot.visit,big.mark=","))%>%
   kable(booktabs=T,digits=2, caption="Summary of Follow-Up",
-        escape=F, col.names=c(" ","No. Subjects","Tot. Visits","Ave. Visits","SD Visits","Range No. Visits",
-                              "Ave Follow-up Months","SD Follow-up Months",
-                              "Range Follow-up Months"))%>%
+        escape=F, col.names=c(" ","No. Subjects","Tot. Visits","Ave. Visits","SD Visits",
+                              "Range No. Visits","Ave Follow-up Months",
+                              "SD Follow-up Months","Range Follow-up Months"))%>%
           kable_styling(latex_options=c("HOLD_position","scale_down"),position="center")%>%
-  footnote(symbol="Determined from the visits that contributed to the estimates for the specified time period. Some individual participants have visits in, and thus are included in, both time periods.",
+  footnote(symbol="Determined from the visits that contributed to the estimates for the 
+           specified time period. Some individual participants have visits in, and thus are 
+           included in, both time periods.",
            threeparttable=T)%>%
   column_spec(2:6,width="1cm")%>%
   column_spec(7:8,width="3cm")%>%
@@ -471,6 +504,8 @@ followup%>%
 
 ```
 
+\newpage
+
 # Table 1
 
 A table 1 is included in the vast majority of pubic health papers. It describes select demographics of the study population.
@@ -479,9 +514,11 @@ A table 1 is included in the vast majority of pubic health papers. It describes 
 #### Table ####
   #### Gender ####
   data%>%
-    mutate(var=factor(str_extract(stratum,"^."),levels=c("f","m"),label=c("Female","Male")))%>%
+    mutate(var=factor(str_extract(stratum,"^."),levels=c("f","m"),
+                      label=c("Female","Male")))%>%
     group_by(var,time)%>%
-    summarize(n=n(),prev=mean(diabetes,na.rm=T),cil=t.test(diabetes)$conf.int[1],ciu=t.test(diabetes)$conf.int[2])%>%
+    summarize(n=n(),prev=mean(diabetes,na.rm=T),cil=t.test(diabetes)$conf.int[1],
+              ciu=t.test(diabetes)$conf.int[2])%>%
     mutate(ci=paste0("(",round(cil,3),", ",round(ciu,3),")"))%>%
     select(-cil,-ciu)%>%
     ungroup()%>%
@@ -498,7 +535,8 @@ A table 1 is included in the vast majority of pubic health papers. It describes 
       mutate(var=factor(str_remove(stratum,"^.."),levels=c("18_34","35_64","65_over"),
                     labels=c("18 to 34 years","35 to 64 years","65 years and over")))%>%
       group_by(var,time)%>%
-      summarize(n=n(),prev=mean(diabetes,na.rm=T),cil=t.test(diabetes)$conf.int[1],ciu=t.test(diabetes)$conf.int[2])%>%
+      summarize(n=n(),prev=mean(diabetes,na.rm=T),cil=t.test(diabetes)$conf.int[1],
+                ciu=t.test(diabetes)$conf.int[2])%>%
       mutate(ci=paste0("(",round(cil,3),", ",round(ciu,3),")"))%>%
       select(-cil,-ciu)%>%
       ungroup()%>%
@@ -513,9 +551,11 @@ A table 1 is included in the vast majority of pubic health papers. It describes 
   #### Education ####
       bind_rows(data%>%
         mutate(var=factor(edu,
-                          levels=c("Less than High School","High School / GED", "Post-Secondary School")))%>%
+                          levels=c("Less than High School","High School / GED",
+                                   "Post-Secondary School")))%>%
         group_by(var,time)%>%
-        summarize(n=n(),prev=mean(diabetes,na.rm=T),cil=t.test(diabetes,na.rm=T)$conf.int[1],
+        summarize(n=n(),prev=mean(diabetes,na.rm=T),
+                  cil=t.test(diabetes,na.rm=T)$conf.int[1],
                   ciu=t.test(diabetes,na.rm=T)$conf.int[2])%>%
         mutate(ci=paste0("(",round(cil,3),", ",round(ciu,3),")"))%>%
         select(-cil,-ciu)%>%
@@ -534,7 +574,8 @@ A table 1 is included in the vast majority of pubic health papers. It describes 
                           levels=c("Employed","Unemployed","Mixed Status")))%>%
         filter(!is.na(var))%>%
         group_by(var,time)%>%
-        summarize(n=n(),prev=mean(diabetes,na.rm=T),cil=t.test(diabetes,na.rm=T)$conf.int[1],
+        summarize(n=n(),prev=mean(diabetes,na.rm=T),
+                  cil=t.test(diabetes,na.rm=T)$conf.int[1],
                   ciu=t.test(diabetes,na.rm=T)$conf.int[2])%>%
         mutate(ci=paste0("(",round(cil,3),", ",round(ciu,3),")"))%>%
         select(-cil,-ciu)%>%
@@ -552,9 +593,11 @@ A table 1 is included in the vast majority of pubic health papers. It describes 
           rename(var=insure)%>%
           filter(!is.na(var))%>%
           mutate(var=factor(var,
-                            levels=c("With Insurance","No Insurance","Mixed Coverage")))%>%
+                            levels=c("With Insurance","No Insurance",
+                                     "Mixed Coverage")))%>%
           group_by(var,time)%>%
-          summarize(n=n(),prev=mean(diabetes,na.rm=T),cil=t.test(diabetes,na.rm=T)$conf.int[1],
+          summarize(n=n(),prev=mean(diabetes,na.rm=T),
+                    cil=t.test(diabetes,na.rm=T)$conf.int[1],
                     ciu=t.test(diabetes,na.rm=T)$conf.int[2])%>%
           mutate(ci=paste0("(",round(cil,3),", ",round(ciu,3),")"))%>%
           select(-cil,-ciu)%>%
@@ -572,17 +615,367 @@ A table 1 is included in the vast majority of pubic health papers. It describes 
           col.names=c("",rep(c("n","Crude Prev.","95% C.I."),2)))%>%
     kable_styling(latex_options="HOLD_position",position="center")%>%
     add_header_above(c(" "=1, "2004-2009"=3, "2010-2018"=3))%>%
-    pack_rows(index=c("Gender"=2, "Age"=3, "Education"=3, "Employment"=3, "Insurance Coverage"=3))%>%
+    pack_rows(index=c("Gender"=2, "Age"=3, "Education"=3, "Employment"=3,
+                      "Insurance Coverage"=3))%>%
     column_spec(c(4,7), width="2.5cm")%>%
     column_spec(c(3,6), width="1cm")%>%
     column_spec(5,border_left=T)%>%
     row_spec(0, align="c")%>%
-    footnote(general="Crude Prevalence estimate calculated by cases / observations for participants of the indicated description.")
+    footnote(general="Crude Prevalence estimate calculated by cases / 
+             observations for participants of the indicated description.",
+             threeparttable=T)
 ```
 
+\newpage
 
 # Weighting
 
+The cohort data, was, in essence, survey data which needed to be weighted to correct for various biases in the sample. This was accomplished by comparing the sample in each stratum/tract combination to the population in that stratum/tract as estimated by the US Census for that time period. The weights are scalar multipliers applied to the sample counts in order to better approximate the population. 
+
+```{r}
+#### wj, stratum weight ####
+# 2004-2009
+# Census counts
+Nj00<-bvl2000%>%
+  gather(stratum,N,2:7)%>%
+  group_by(stratum)%>%
+  summarize(Nj=sum(N))%>%
+  mutate(time="pre")
+
+# Sample counts
+mj00<-data%>%
+  filter(str_detect(id2,"pre"))%>%
+  group_by(stratum)%>%
+  summarize(mj=n())%>%
+  mutate(time="pre")
+
+# Stratum Weights
+wj00<-Nj00%>%
+  left_join(mj00,by=c("stratum","time"))%>%
+  mutate(wj=Nj/mj)%>%
+  select(-Nj,-mj)
+
+# 2010-2018
+Nj10<-bvl2010%>%
+  gather(stratum,N,2:7)%>%
+  group_by(stratum)%>%
+  summarize(Nj=sum(N))%>%
+  mutate(time="post")
+
+
+mj10<-data%>%
+  filter(str_detect(id2,"post"))%>%
+  group_by(stratum)%>%
+  summarize(mj=n())%>%
+  mutate(time="post")
+
+wj10<-Nj10%>%
+  left_join(mj10,by=c("stratum","time"))%>%
+  mutate(wj=Nj/mj)%>%
+  select(-Nj,-mj)
+
+# Aggregation
+data<-data%>%
+  left_join(wj00,by=c("time","stratum"))%>%
+  left_join(wj10,by=c("time","stratum"))%>%
+  # Puts weights into one column
+  mutate(wj=map2_dbl(.x=wj.x,.y=wj.y,
+                     .f=~if(is.na(.x)){return(.y)}else{return(.x)}))%>%
+  select(-wj.x,-wj.y)
+
+#### wi, tract weight ####
+# 2004-2009
+Ni00<-bvl2000%>%
+  gather(stratum,N,2:7)%>%
+  group_by(tract)%>%
+  summarize(Ni=sum(N))%>%
+  mutate(time="pre")
+
+mi00<-data%>%
+  filter(str_detect(id2,"pre"))%>%
+  group_by(tract)%>%
+  summarize(mi=n())%>%
+  mutate(time="pre")
+
+wi00<-Ni00%>%
+  left_join(mi00,by=c("tract","time"))%>%
+  mutate(wi=Ni/mi)%>%
+  select(-Ni,-mi)
+
+# 2010-2018
+Ni10<-bvl2010%>%
+  gather(stratum,N,2:7)%>%
+  group_by(tract)%>%
+  summarize(Ni=sum(N))%>%
+  mutate(time="post")
+
+mi10<-data%>%
+  filter(str_detect(id2,"post"))%>%
+  group_by(tract)%>%
+  summarize(mi=n())%>%
+  mutate(time="post")
+
+wi10<-Ni10%>%
+  left_join(mi10,by=c("tract","time"))%>%
+  mutate(wi=Ni/mi)%>%
+  select(-Ni,-mi)
+
+# Aggregation
+
+data<-data%>%
+  left_join(wi00,by=c("time","tract"))%>%
+  left_join(wi10,by=c("time","tract"))%>%
+  mutate(wi=map2_dbl(.x=wi.x,.y=wi.y,
+                     .f=~if(is.na(.x)){return(.y)}else{return(.x)}))%>%
+  select(-wi.x,-wi.y)
+
+#### wij, stratum/tract weight ####
+
+# 2004-2009
+Nij00<-bvl2000%>%
+  gather(stratum,Nij,2:7)%>%
+  mutate(time="pre")
+
+mij00<-data%>%
+  filter(str_detect(id2,"pre"))%>%
+  group_by(tract,stratum)%>%
+  summarize(mij=n())%>%
+  mutate(time="pre")
+
+wij00<-Nij00%>%
+  left_join(mij00, by=c("tract","stratum","time"))%>%
+  mutate(wij=Nij/mij)%>%
+  select(-Nij,-mij)
+
+# 2010-2018
+Nij10<-bvl2010%>%
+  gather(stratum,Nij,2:7)%>%
+  mutate(time="post")
+
+mij10<-data%>%
+  filter(str_detect(id2,"post"))%>%
+  group_by(tract,stratum)%>%
+  summarize(mij=n())%>%
+  mutate(time="post")
+
+wij10<-Nij10%>%
+  left_join(mij10, by=c("tract","stratum","time"))%>%
+  mutate(wij=Nij/mij)%>%
+  select(-Nij,-mij)
+
+# Aggregation
+
+data<-data%>%
+  left_join(wij00,by=c("time","stratum","tract"))%>%
+  left_join(wij10,by=c("time","stratum","tract"))%>%
+  mutate(wij=map2_dbl(.x=wij.x,.y=wij.y,
+                      .f=~if(is.na(.x)){return(.y)}else{return(.x)}))%>%
+  select(-wij.x,-wij.y)
+
+head(data)
+
+```
+
+
 # Modelling
+
+```{r}
+shp<-focusmap2010
+shp@data$ID<-1:nrow(shp@data)
+# MAke sure order of shapePoly is same as data
+shp@data$tract<-as.numeric(as.character(shp@data$NAME10))
+results<-data.frame(tract=unique(c(focus00,focus10)))
+#### Packages ####
+library(survey)
+library(INLA)
+#### Prepare data ####
+# Data with diabetic observations
+svydata00<-data%>%
+  filter(str_detect(RRID2,"pre")& !is.na(diabetic))%>%
+  left_join(Nij00,by=c("tract","strata","time"))
+svydata10<-data%>%
+  filter(str_detect(RRID2,"post")& !is.na(diabetic))%>%
+  left_join(Nij10,by=c("tract","strata","time"))
+
+# Strata population for existing combinations
+N.j00<-svydata00%>%
+  distinct(strata, tract, .keep_all = TRUE)%>% 
+  group_by(strata)%>% 
+  summarize(fpc = sum(Nij))
+N.j10<-svydata10%>%
+  distinct(strata, tract, .keep_all = TRUE)%>% 
+  group_by(strata)%>% 
+  summarize(fpc = sum(Nij))
+
+# Tract population for existing combinations
+N.i00<-svydata00%>%
+  group_by(strata, tract)%>%
+  distinct(strata,tract,.keep_all=T)%>%
+  group_by(tract)%>%
+  summarize(fpc=sum(Nij))
+N.i10<-svydata10%>%
+  group_by(strata, tract)%>%
+  distinct(strata,tract,.keep_all=T)%>%
+  group_by(tract)%>%
+  summarize(fpc=sum(Nij))
+
+# Sample sizes
+m.i00<-svydata00%>%
+  group_by(tract)%>%
+  summarize(m=n())
+m.i10<-svydata10%>%
+  group_by(tract)%>%
+  summarize(m=n())
+
+# Outcome
+y.i00<-svydata00%>%
+  group_by(tract)%>%
+  summarize(y=sum(diabetic))
+y.i10<-svydata10%>%
+  group_by(tract)%>%
+  summarize(y=sum(diabetic))
+
+# Aggregate it
+svydata00<-svydata00%>%
+  left_join(N.i00)%>%
+  left_join(m.i00)%>%
+  left_join(y.i00)
+svydata10<-svydata10%>%
+  left_join(N.i10)%>%
+  left_join(m.i10)%>%
+  left_join(y.i10)
+
+#### Post statification with Survey Package ####
+
+# Create design objects
+des00 <- svydesign(id= ~1, strata=~tract,weights=~wij,data=svydata00, fpc=~fpc)
+des10 <- svydesign(id= ~1, strata=~tract,weights=~wij,data=svydata10, fpc=~fpc)
+
+# Format Nj objects
+pop.types00<-N.j00%>%rename(Freq=fpc)
+pop.types10<-N.j10%>%rename(Freq=fpc)
+
+# Alter survey design object
+psdes00<-postStratify(des00,~strata,pop.types00)
+psdes10<-postStratify(des10,~strata,pop.types10)
+
+results<-results%>%
+  mutate(tract=as.character(tract))%>%
+  # Crude prevalence
+  left_join(y.i00,by="tract")%>%
+  left_join(m.i00,by="tract")%>%
+  rename(y00=y,m00=m)%>%
+  left_join(y.i10,by="tract")%>%
+  left_join(m.i10,by="tract")%>%
+  rename(y10=y,m10=m)%>%
+  mutate(CrudeE00=y00/m00,CrudeE10=y10/m10,
+         CrudeS00=CrudeE00*(1-CrudeE00)/m00,
+         CrudeS10=CrudeE10*(1-CrudeE10)/m10)%>%
+  select(tract,y00,m00,CrudeE00,CrudeS00,y10,m10,CrudeE10,CrudeS10)%>%
+  # Weighted prevalence without post stratification
+  left_join(svyby(~diabetic, ~tract, svymean,design=des00,keep.names = F),by="tract")%>%
+  rename(SvyWijE00=diabetic,SvyWijS00=se)%>%
+  left_join(svyby(~diabetic, ~tract, svymean,design=des10,keep.names = F),by="tract")%>%
+  rename(SvyWijE10=diabetic,SvyWijS10=se)%>%
+  # Weighted prevalence with post stratification
+  left_join(svyby(~diabetic, ~tract, svymean,design=psdes00,keep.names = F),by="tract")%>%
+  rename(SvyPSE00=diabetic,SvyPSS00=se)%>%
+  left_join(svyby(~diabetic, ~tract, svymean,design=psdes10,keep.names = F),by="tract")%>%
+  rename(SvyPSE10=diabetic,SvyPSS10=se)
+  
+#### Calculation of .* values ####
+
+# .* is the weighted version of . 
+# Correlate to effective sample sizes and cases
+
+# Calculate stratum prevalence
+p.j00<-svyby(~diabetic, ~strata, svymean, design=psdes00,keep.names=F)
+names(p.j00)[2] <- "p_stratum"
+p.j10<-svyby(~diabetic, ~strata, svymean, design=psdes10,keep.names=F)
+names(p.j10)[2] <- "p_stratum"
+
+results<-results%>%
+  # Calculate residual, e
+  left_join(svydata00%>%
+              left_join(p.j00,by=c("strata"))%>%
+              mutate(e2.00 = (diabetic - p_stratum)^2)%>%
+              group_by(tract)%>%
+              summarize(RSS00=sum(e2.00))%>%
+              left_join(N.i00)%>%
+              left_join(m.i00)%>%
+              left_join(y.i00)%>%
+              mutate(var.p00 = ((fpc-m)/fpc)*(RSS00/(m*(m-1)))),
+            by="tract")%>%
+  mutate(m.star00=SvyPSE00*(1-SvyPSE00)/var.p00,
+                 y.star00=m.star00 * SvyPSE00)%>%
+  select(-RSS00,-fpc,-m,-y,-var.p00)%>%
+  left_join(svydata10%>%
+              left_join(p.j10,by=c("strata"))%>%
+              mutate(e2.10 = (diabetic - p_stratum)^2)%>%
+              group_by(tract)%>%
+              summarize(RSS10=sum(e2.10))%>%
+              left_join(N.i10)%>%
+              left_join(m.i10)%>%
+              left_join(y.i10)%>%
+              mutate(var.p10 = ((fpc-m)/fpc)*(RSS10/(m*(m-1)))),
+            by="tract")%>%
+  mutate(m.star10=SvyPSE10*(1-SvyPSE10)/var.p10,
+         y.star10=m.star10 * SvyPSE10)%>%
+  select(-RSS10,-fpc,-m,-y,-var.p10)
+
+
+#### Spatial Models ####
+
+data.inla <-left_join(shp@data, results%>%mutate(tract=as.numeric(tract)),  by = c("tract"))
+
+# Y model 
+formula <- y10 ~ 1 + f(ID, model="bym", graph="MappingObjects/focusmap10.adj", hyper=list(prec.unstruct=list(prior="loggamma",param=c(0.5, 0.008)), prec.spatial=list(prior="loggamma",param=c(0.5, 0.008))))
+
+mod <- inla(formula, family="binomial", data=data.inla, Ntrials=m10, control.predictor=list(compute=TRUE, link=1))
+
+# Y* model
+
+formula <- y.star10 ~ 1 + f(ID, model="bym", graph="MappingObjects/focusmap10.adj", hyper=list(prec.unstruct=list(prior="loggamma",param=c(0.5, 0.008)), prec.spatial=list(prior="loggamma",param=c(0.5, 0.008))))
+
+mod2 <- inla(formula, family="binomial", data=data.inla, Ntrials=m.star10, control.predictor=list(compute=TRUE, link=1))
+
+# Aggregate
+
+results<-results%>%
+  left_join(data.inla%>%
+              select(tract)%>%
+              mutate(tract=as.character(tract),
+                     InlaE10 = mod$summary.fitted.values[, 1],
+                     Inla.starE10 = mod2$summary.fitted.values[, 1],
+                     InlaS10=mod$summary.fitted.values[,2],
+                     Inla.starS10=mod2$summary.fitted.values[,2]),
+            by="tract")%>%
+  # for joining with mapping, id is the region name
+  select(id=tract,
+         # Crude 2000
+         y00,m00,CrudeE00,CrudeS00,
+         # Weighted 2000
+         SvyWijE00,SvyWijS00,
+         # Post stratified 2000
+         y.star00,m.star00,SvyPSE00,SvyPSS00,
+         # Crude 2010
+         y10,m10,CrudeE10,CrudeS10,
+         # Weighted 2010
+         SvyWijE10,SvyWijS10,
+         # Post stratified 2010
+         y.star10,m.star10,SvyPSE10,SvyPSS10,
+         # Spatial smoothing 2010
+         InlaE10,InlaS10,
+         # Weighted spatial smoothing 2010
+         Inla.starE10,Inla.starS10)%>%
+  arrange(id)
+  
+#### Stratum Prevalence ####
+strata<-p.j00%>%
+  left_join(mj00,by="strata")%>%
+  bind_rows(p.j10%>%
+              left_join(mj10,by="strata"))%>%
+  mutate(time=map_chr(.x=time,~ifelse(.x=="pre","2004-2009","2010-2018")))
+```
 
 # Mapping
