@@ -307,16 +307,16 @@ head(bvl2000)
 # Simulating Data
 
 ```{r}
-set.seed(09062019)
+set.seed(10142019)
 #### Multiple Visit Data ####
 datamult<-data.frame(
-  id=sample(0:5000,10000,replace=T),
+  id=sample(0:1000,3000,replace=T),
   visitdate=sample(seq(as.Date("2004-01-01"),as.Date("2018-12-31"),by="day"),
-                   10000,replace=T),
-  age=sample(18:100,10000,replace=T),
-  insure=sample(0:1,10000,replace=T),
-  employ=sample(0:1,10000,replace=T),
-  diabetes=sample(0:1,10000,replace=T))
+                   3000,replace=T),
+  age=sample(18:100,3000,replace=T),
+  insure=sample(0:1,3000,replace=T),
+  employ=sample(0:1,3000,replace=T),
+  diabetes=sample(0:1,3000,replace=T))
 
 datamult$time<-map_chr(.x=datamult$visitdate,
                        .f=~if(.x>as.Date("2010-01-01"))
@@ -779,43 +779,38 @@ head(data)
 
 # Modelling
 
+Three seperate models were calculated for this data. The first was a crude estimate of diabetes prevelence simply calculated by $prevalence=\frac{cases}{observations}$. The second model took into account the weighting procedure. The third "spatially smoothed" the estimates (using Dr. Cici Bauer's Method) meaning that areas that were geographically closer to one another were assumed to be more similar than ones further away. A spatial model was only calculated for the later time period due to the higher number of tracts sampled. 
+
 ```{r}
-shp<-focusmap2010
-shp@data$ID<-1:nrow(shp@data)
-# MAke sure order of shapePoly is same as data
-shp@data$tract<-as.numeric(as.character(shp@data$NAME10))
-results<-data.frame(tract=unique(c(focus00,focus10)))
-#### Packages ####
-library(survey)
-library(INLA)
 #### Prepare data ####
 # Data with diabetic observations
+# Not a problem in simulated data but important with survey data
 svydata00<-data%>%
-  filter(str_detect(RRID2,"pre")& !is.na(diabetic))%>%
-  left_join(Nij00,by=c("tract","strata","time"))
+  filter(str_detect(id2,"pre")& !is.na(diabetes))%>%
+  left_join(Nij00,by=c("tract","stratum","time"))
 svydata10<-data%>%
-  filter(str_detect(RRID2,"post")& !is.na(diabetic))%>%
-  left_join(Nij10,by=c("tract","strata","time"))
+  filter(str_detect(id2,"post")& !is.na(diabetes))%>%
+  left_join(Nij10,by=c("tract","stratum","time"))
 
 # Strata population for existing combinations
 N.j00<-svydata00%>%
-  distinct(strata, tract, .keep_all = TRUE)%>% 
-  group_by(strata)%>% 
+  distinct(stratum, tract, .keep_all = TRUE)%>% 
+  group_by(stratum)%>% 
   summarize(fpc = sum(Nij))
 N.j10<-svydata10%>%
-  distinct(strata, tract, .keep_all = TRUE)%>% 
-  group_by(strata)%>% 
+  distinct(stratum, tract, .keep_all = TRUE)%>% 
+  group_by(stratum)%>% 
   summarize(fpc = sum(Nij))
 
 # Tract population for existing combinations
 N.i00<-svydata00%>%
-  group_by(strata, tract)%>%
-  distinct(strata,tract,.keep_all=T)%>%
+  group_by(stratum, tract)%>%
+  distinct(stratum,tract,.keep_all=T)%>%
   group_by(tract)%>%
   summarize(fpc=sum(Nij))
 N.i10<-svydata10%>%
-  group_by(strata, tract)%>%
-  distinct(strata,tract,.keep_all=T)%>%
+  group_by(stratum, tract)%>%
+  distinct(stratum,tract,.keep_all=T)%>%
   group_by(tract)%>%
   summarize(fpc=sum(Nij))
 
@@ -830,10 +825,10 @@ m.i10<-svydata10%>%
 # Outcome
 y.i00<-svydata00%>%
   group_by(tract)%>%
-  summarize(y=sum(diabetic))
+  summarize(y=sum(diabetes))
 y.i10<-svydata10%>%
   group_by(tract)%>%
-  summarize(y=sum(diabetic))
+  summarize(y=sum(diabetes))
 
 # Aggregate it
 svydata00<-svydata00%>%
@@ -844,20 +839,24 @@ svydata10<-svydata10%>%
   left_join(N.i10)%>%
   left_join(m.i10)%>%
   left_join(y.i10)
+```
 
+ISSUE HERE
+
+```{r}
 #### Post statification with Survey Package ####
 
 # Create design objects
-des00 <- svydesign(id= ~1, strata=~tract,weights=~wij,data=svydata00, fpc=~fpc)
-des10 <- svydesign(id= ~1, strata=~tract,weights=~wij,data=svydata10, fpc=~fpc)
+des00 <- svydesign(id= ~1, stratum=~tract,weights=~wij,data=svydata00, fpc=~fpc)
+des10 <- svydesign(id= ~1, stratum=~tract,weights=~wij,data=svydata10, fpc=~fpc)
 
 # Format Nj objects
 pop.types00<-N.j00%>%rename(Freq=fpc)
 pop.types10<-N.j10%>%rename(Freq=fpc)
 
 # Alter survey design object
-psdes00<-postStratify(des00,~strata,pop.types00)
-psdes10<-postStratify(des10,~strata,pop.types10)
+psdes00<-postStratify(des00,~stratum,pop.types00)
+psdes10<-postStratify(des10,~stratum,pop.types10)
 
 results<-results%>%
   mutate(tract=as.character(tract))%>%
@@ -873,15 +872,15 @@ results<-results%>%
          CrudeS10=CrudeE10*(1-CrudeE10)/m10)%>%
   select(tract,y00,m00,CrudeE00,CrudeS00,y10,m10,CrudeE10,CrudeS10)%>%
   # Weighted prevalence without post stratification
-  left_join(svyby(~diabetic, ~tract, svymean,design=des00,keep.names = F),by="tract")%>%
-  rename(SvyWijE00=diabetic,SvyWijS00=se)%>%
-  left_join(svyby(~diabetic, ~tract, svymean,design=des10,keep.names = F),by="tract")%>%
-  rename(SvyWijE10=diabetic,SvyWijS10=se)%>%
+  left_join(svyby(~diabetes, ~tract, svymean,design=des00,keep.names = F),by="tract")%>%
+  rename(SvyWijE00=diabetes,SvyWijS00=se)%>%
+  left_join(svyby(~diabetes, ~tract, svymean,design=des10,keep.names = F),by="tract")%>%
+  rename(SvyWijE10=diabetes,SvyWijS10=se)%>%
   # Weighted prevalence with post stratification
-  left_join(svyby(~diabetic, ~tract, svymean,design=psdes00,keep.names = F),by="tract")%>%
-  rename(SvyPSE00=diabetic,SvyPSS00=se)%>%
-  left_join(svyby(~diabetic, ~tract, svymean,design=psdes10,keep.names = F),by="tract")%>%
-  rename(SvyPSE10=diabetic,SvyPSS10=se)
+  left_join(svyby(~diabetes, ~tract, svymean,design=psdes00,keep.names = F),by="tract")%>%
+  rename(SvyPSE00=diabetes,SvyPSS00=se)%>%
+  left_join(svyby(~diabetes, ~tract, svymean,design=psdes10,keep.names = F),by="tract")%>%
+  rename(SvyPSE10=diabetes,SvyPSS10=se)
   
 #### Calculation of .* values ####
 
@@ -889,16 +888,16 @@ results<-results%>%
 # Correlate to effective sample sizes and cases
 
 # Calculate stratum prevalence
-p.j00<-svyby(~diabetic, ~strata, svymean, design=psdes00,keep.names=F)
+p.j00<-svyby(~diabetes, ~stratum, svymean, design=psdes00,keep.names=F)
 names(p.j00)[2] <- "p_stratum"
-p.j10<-svyby(~diabetic, ~strata, svymean, design=psdes10,keep.names=F)
+p.j10<-svyby(~diabetes, ~stratum, svymean, design=psdes10,keep.names=F)
 names(p.j10)[2] <- "p_stratum"
 
 results<-results%>%
   # Calculate residual, e
   left_join(svydata00%>%
-              left_join(p.j00,by=c("strata"))%>%
-              mutate(e2.00 = (diabetic - p_stratum)^2)%>%
+              left_join(p.j00,by=c("stratum"))%>%
+              mutate(e2.00 = (diabetes - p_stratum)^2)%>%
               group_by(tract)%>%
               summarize(RSS00=sum(e2.00))%>%
               left_join(N.i00)%>%
@@ -910,8 +909,8 @@ results<-results%>%
                  y.star00=m.star00 * SvyPSE00)%>%
   select(-RSS00,-fpc,-m,-y,-var.p00)%>%
   left_join(svydata10%>%
-              left_join(p.j10,by=c("strata"))%>%
-              mutate(e2.10 = (diabetic - p_stratum)^2)%>%
+              left_join(p.j10,by=c("stratum"))%>%
+              mutate(e2.10 = (diabetes - p_stratum)^2)%>%
               group_by(tract)%>%
               summarize(RSS10=sum(e2.10))%>%
               left_join(N.i10)%>%
@@ -925,6 +924,13 @@ results<-results%>%
 
 
 #### Spatial Models ####
+
+shp<-focusmap2010
+shp@data$ID<-1:nrow(shp@data)
+# MAke sure order of shapePoly is same as data
+shp@data$tract<-as.numeric(as.character(shp@data$NAME10))
+results<-data.frame(tract=unique(c(focus00,focus10)))
+
 
 data.inla <-left_join(shp@data, results%>%mutate(tract=as.numeric(tract)),  by = c("tract"))
 
@@ -969,12 +975,14 @@ results<-results%>%
          # Weighted spatial smoothing 2010
          Inla.starE10,Inla.starS10)%>%
   arrange(id)
+
+head(results)
   
 #### Stratum Prevalence ####
 strata<-p.j00%>%
-  left_join(mj00,by="strata")%>%
+  left_join(mj00,by="stratum")%>%
   bind_rows(p.j10%>%
-              left_join(mj10,by="strata"))%>%
+              left_join(mj10,by="stratum"))%>%
   mutate(time=map_chr(.x=time,~ifelse(.x=="pre","2004-2009","2010-2018")))
 ```
 
