@@ -292,6 +292,7 @@ head(bvl2000)
 # Simulating Data
 
 ```{r}
+set.seed(09062019)
 #### Multiple Visit Data ####
 data<-data.frame(
   id=sample(0:5000,10000,replace=T),
@@ -300,16 +301,42 @@ data<-data.frame(
   insure=sample(0:1,10000,replace=T),
   employ=sample(0:1,10000,replace=T),
   diabetes=sample(0:1,10000,replace=T))
+
 data$time<-map_chr(.x=data$visitdate,.f=~if(.x>as.Date("2010-01-01")){return("post")}else{return("pre")})
 data$id2<-paste0(data$id,data$time)
 
+demos <- data.frame(id=unique(data$id),
+                    gender=sample(c("male","female"),length(unique(data$id)),replace=T),
+                    tract=sample(focus00,length(unique(data$id)),replace=T),
+                    edu=sample(c("Less than High School","High School / GED","Post-Secondary School"),
+                               length(unique(data$id)),replace=T))
+
+data <- data%>%
+  left_join(demos,by="id")%>%
+  select(id,id2,time,visitdate,tract,gender,age,edu,insure,employ,diabetes)
+
 #### Single ID Data ####
-data%>%
-  group_by(id2,time)%>%
+data <- data%>%
+  group_by(id2,time,gender,edu,tract)%>%
   summarize(age=mean(age),
-            diabetes=map_dbl(.x=diabetes,.f=~if(mean(.x)>0){return(1)}else{return(0)}),
-            employ=map_chr(.x=employ,.f=~ifelse(mean(.x)==1,"Employed",ifelse(
-                                                                  mean(.x)==0,"Unemployed","Mixed Status"))))
+            diabetes=map_dbl(.x=mean(diabetes),
+                           .f=~ifelse(.x==0, 0,1)),
+            insure=map_chr(.x=mean(insure),
+                           .f=~ifelse(.x==1, "With Insurance",
+                                      ifelse(.x==0, "No Insurance", "Mixed Coverage"))),
+            employ=map_chr(.x=mean(employ),
+                           .f=~ifelse(.x==1, "Employed",
+                                      ifelse(.x==0, "Unemployed", "Mixed Status"))))%>%
+  ungroup()%>%
+  mutate(gender=map_chr(.x=gender,~ifelse(.x=="female","f_","m_")),
+         age=map_chr(.x=age,~ifelse(.x>=18 & .x<35, "18_34",
+                                   ifelse(.x>=35 & .x<65, "35_64",
+                                          ifelse(.x>=65, "65_over", NA)))),
+         stratum=paste0(gender,age))%>%
+  select(id2,time,tract,stratum,employ,insure,edu,diabetes)
+
+head(data)
+  
 ```
 
                                                 
