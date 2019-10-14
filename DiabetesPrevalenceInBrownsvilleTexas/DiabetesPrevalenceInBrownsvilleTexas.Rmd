@@ -473,6 +473,114 @@ followup%>%
 
 # Table 1
 
+A table 1 is included in the vast majority of pubic health papers. It describes select demographics of the study population.
+
+```{r}
+#### Table ####
+  #### Gender ####
+  data%>%
+    mutate(var=factor(str_extract(stratum,"^."),levels=c("f","m"),label=c("Female","Male")))%>%
+    group_by(var,time)%>%
+    summarize(n=n(),prev=mean(diabetes,na.rm=T),cil=t.test(diabetes)$conf.int[1],ciu=t.test(diabetes)$conf.int[2])%>%
+    mutate(ci=paste0("(",round(cil,3),", ",round(ciu,3),")"))%>%
+    select(-cil,-ciu)%>%
+    ungroup()%>%
+    mutate(vals=map2_chr(.x=n,.y=prev,.f=~paste(.x,.y,sep=";",collapse=";")),
+           vals=map2_chr(.x=vals,.y=ci,.f=~paste(.x,.y,sep=";",collapse=";")))%>%
+    select(var,time,vals)%>%
+    spread(time,vals,2:3)%>%
+    select(var,pre,post)%>%
+    separate(pre,into=c("n.pre","prev.pre","ci.pre"),sep=";")%>%
+    separate(post,into=c("n.post","prev.post","ci.post"),sep=";")%>%
+      mutate(var=as.character(var))%>%
+  #### Age ####
+    bind_rows(data%>%
+      mutate(var=factor(str_remove(stratum,"^.."),levels=c("18_34","35_64","65_over"),
+                    labels=c("18 to 34 years","35 to 64 years","65 years and over")))%>%
+      group_by(var,time)%>%
+      summarize(n=n(),prev=mean(diabetes,na.rm=T),cil=t.test(diabetes)$conf.int[1],ciu=t.test(diabetes)$conf.int[2])%>%
+      mutate(ci=paste0("(",round(cil,3),", ",round(ciu,3),")"))%>%
+      select(-cil,-ciu)%>%
+      ungroup()%>%
+      mutate(vals=map2_chr(.x=n,.y=prev,.f=~paste(.x,.y,sep=";",collapse=";")),
+             vals=map2_chr(.x=vals,.y=ci,.f=~paste(.x,.y,sep=";",collapse=";")))%>%
+      select(var,time,vals)%>%
+      spread(time,vals,2:3)%>%
+      select(var,pre,post)%>%
+      separate(pre,into=c("n.pre","prev.pre","ci.pre"),sep=";")%>%
+      separate(post,into=c("n.post","prev.post","ci.post"),sep=";")%>%
+      mutate(var=as.character(var)))%>%
+  #### Education ####
+      bind_rows(data%>%
+        mutate(var=factor(edu,
+                          levels=c("Less than High School","High School / GED", "Post-Secondary School")))%>%
+        group_by(var,time)%>%
+        summarize(n=n(),prev=mean(diabetes,na.rm=T),cil=t.test(diabetes,na.rm=T)$conf.int[1],
+                  ciu=t.test(diabetes,na.rm=T)$conf.int[2])%>%
+        mutate(ci=paste0("(",round(cil,3),", ",round(ciu,3),")"))%>%
+        select(-cil,-ciu)%>%
+        ungroup()%>%
+        mutate(vals=map2_chr(.x=n,.y=prev,.f=~paste(.x,.y,sep=";",collapse=";")),
+               vals=map2_chr(.x=vals,.y=ci,.f=~paste(.x,.y,sep=";",collapse=";")))%>%
+        select(var,time,vals)%>%
+        spread(time,vals,2:3)%>%
+        select(var,pre,post)%>%
+        separate(pre,into=c("n.pre","prev.pre","ci.pre"),sep=";")%>%
+        separate(post,into=c("n.post","prev.post","ci.post"),sep=";")%>%
+        mutate(var=as.character(var)))%>%
+  #### Employment ####
+      bind_rows(data%>%
+        mutate(var=factor(employ,
+                          levels=c("Employed","Unemployed","Mixed Status")))%>%
+        filter(!is.na(var))%>%
+        group_by(var,time)%>%
+        summarize(n=n(),prev=mean(diabetes,na.rm=T),cil=t.test(diabetes,na.rm=T)$conf.int[1],
+                  ciu=t.test(diabetes,na.rm=T)$conf.int[2])%>%
+        mutate(ci=paste0("(",round(cil,3),", ",round(ciu,3),")"))%>%
+        select(-cil,-ciu)%>%
+        ungroup()%>%
+        mutate(vals=map2_chr(.x=n,.y=prev,.f=~paste(.x,.y,sep=";",collapse=";")),
+               vals=map2_chr(.x=vals,.y=ci,.f=~paste(.x,.y,sep=";",collapse=";")))%>%
+        select(var,time,vals)%>%
+        spread(time,vals,2:3)%>%
+        select(var,pre,post)%>%
+        separate(pre,into=c("n.pre","prev.pre","ci.pre"),sep=";")%>%
+        separate(post,into=c("n.post","prev.post","ci.post"),sep=";")%>%
+        mutate(var=as.character(var)))%>%
+  #### Insurance ####
+        bind_rows(data%>%
+          rename(var=insure)%>%
+          filter(!is.na(var))%>%
+          mutate(var=factor(var,
+                            levels=c("With Insurance","No Insurance","Mixed Coverage")))%>%
+          group_by(var,time)%>%
+          summarize(n=n(),prev=mean(diabetes,na.rm=T),cil=t.test(diabetes,na.rm=T)$conf.int[1],
+                    ciu=t.test(diabetes,na.rm=T)$conf.int[2])%>%
+          mutate(ci=paste0("(",round(cil,3),", ",round(ciu,3),")"))%>%
+          select(-cil,-ciu)%>%
+          ungroup()%>%
+          mutate(vals=map2_chr(.x=n,.y=prev,.f=~paste(.x,.y,sep=";",collapse=";")),
+                 vals=map2_chr(.x=vals,.y=ci,.f=~paste(.x,.y,sep=";",collapse=";")))%>%
+          select(var,time,vals)%>%
+          spread(key=time,value=vals,2:3)%>%
+          separate(pre,into=c("n.pre","prev.pre","ci.pre"),sep=";")%>%
+          separate(post,into=c("n.post","prev.post","ci.post"),sep=";")%>%
+          mutate(var=as.character(var)))%>%
+    mutate(prev.pre=as.numeric(prev.pre),prev.post=as.numeric(prev.post))%>%
+#### Kable styling ####
+    kable(booktabs=T,digits=3,caption="Select Demographics of Study Population",
+          col.names=c("",rep(c("n","Crude Prev.","95% C.I."),2)))%>%
+    kable_styling(latex_options="HOLD_position",position="center")%>%
+    add_header_above(c(" "=1, "2004-2009"=3, "2010-2018"=3))%>%
+    pack_rows(index=c("Gender"=2, "Age"=3, "Education"=3, "Employment"=3, "Insurance Coverage"=3))%>%
+    column_spec(c(4,7), width="2.5cm")%>%
+    column_spec(c(3,6), width="1cm")%>%
+    column_spec(5,border_left=T)%>%
+    row_spec(0, align="c")%>%
+    footnote(general="Crude Prevalence estimate calculated by cases / observations for participants of the indicated description.")
+```
+
+
 # Weighting
 
 # Modelling
