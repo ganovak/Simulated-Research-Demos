@@ -294,7 +294,7 @@ head(bvl2000)
 ```{r}
 set.seed(09062019)
 #### Multiple Visit Data ####
-data<-data.frame(
+datamult<-data.frame(
   id=sample(0:5000,10000,replace=T),
   visitdate=sample(seq(as.Date("2004-01-01"),as.Date("2018-12-31"),by="day"),10000,replace=T),
   age=sample(18:100,10000,replace=T),
@@ -302,21 +302,21 @@ data<-data.frame(
   employ=sample(0:1,10000,replace=T),
   diabetes=sample(0:1,10000,replace=T))
 
-data$time<-map_chr(.x=data$visitdate,.f=~if(.x>as.Date("2010-01-01")){return("post")}else{return("pre")})
-data$id2<-paste0(data$id,data$time)
+datamult$time<-map_chr(.x=datamult$visitdate,.f=~if(.x>as.Date("2010-01-01")){return("post")}else{return("pre")})
+datamult$id2<-paste0(datamult$id,datamult$time)
 
-demos <- data.frame(id=unique(data$id),
-                    gender=sample(c("male","female"),length(unique(data$id)),replace=T),
-                    tract=sample(focus00,length(unique(data$id)),replace=T),
+demos <- data.frame(id=unique(datamult$id),
+                    gender=sample(c("male","female"),length(unique(datamult$id)),replace=T),
+                    tract=sample(focus00,length(unique(datamult$id)),replace=T),
                     edu=sample(c("Less than High School","High School / GED","Post-Secondary School"),
-                               length(unique(data$id)),replace=T))
+                               length(unique(datamult$id)),replace=T))
 
-data <- data%>%
+datamult <- datamult%>%
   left_join(demos,by="id")%>%
   select(id,id2,time,visitdate,tract,gender,age,edu,insure,employ,diabetes)
 
 #### Single ID Data ####
-data <- data%>%
+data <- datamult%>%
   group_by(id2,time,gender,edu,tract)%>%
   summarize(age=mean(age),
             diabetes=map_dbl(.x=mean(diabetes),
@@ -339,10 +339,142 @@ head(data)
   
 ```
 
-                                                
+# Data Cleaning
+
+## Tract Conversion
+
+Data was collected between 2004 and 2018. As seen before with the maps, Some tract boundaries were redrawn for the 2010 census. However, all observations were recorded with their 2000 census tract. The following code converts to the appropriate tract. Conversions were calculated by Yunyun Jiang, at the time a graduate student at the University of Texas School of Public Health. Be aware that this is a simplified version of the true conversion, which utalized exact addresses to ensure proper tract selection.
 
 ```{r}
-data
+data <- data%>%
+  mutate(tract=ifelse(time=="pre",tract,
+                      ifelse(tract==126.04,144,
+                             ifelse(tract==126.06,144,
+                                    ifelse(tract==126.1,145,
+                                           ifelse(tract==126.11,145,
+                                                  ifelse(tract==132.08,141,
+                                                         ifelse(tract==133.04,143,tract))))))))
 ```
 
-data(id2,time,tract,stratum,diabetes,employ,insure), multiple visit length 10000, single id version 7811, set.seed 09062019
+## Constant information per ID
+
+```{r}
+#### Function ####
+# Input: Dataset and 2 specified variables, the grouping variable and the information variable
+# Output: TRUE if information variable is constant for each level of the grouping variable,
+#         FALSE if if information variable differs for each level of the grouping variable
+constant <- function(data, variable, grouping){
+  grouping <- enquo(grouping)
+  variable <- enquo(variable)
+  tab <- data%>%
+    group_by(!! grouping)%>%
+    summarize(identical=n_distinct(!! variable))%>%
+    filter(identical>1)
+  if (nrow(tab)>0){return(FALSE)}
+  else {return(TRUE)}
+}
+
+#### Usage ####
+constant(data, tract, id2)
+constant(data, stratum, id2)
+constant(data, employ,id2)
+constant(data,insure,id2)
+constant(data,diabetes, id2)
+```
+
+These all return true because this data was created clean. `x` demonstrates the function returning FALSE.
+
+```{r}
+x <- data.frame(col1=c(1,1,1,1),
+                col2=c(1,2,3,4),
+                col3=c(1,1,2,2))
+
+constant(x, col3, col1)
+```
+In this case the function returns FALSE because for each value in `col1` (1), there are multiple values of `col3` (1 and 2). 
+
+# Follow Up
+
+Follow up has to be calcuated from the `multdata` data set because `data` drops the individual visit dates. 
+
+```{r}
+followup <- datamult%>%
+  #### Overall follow up ####
+  group_by(id)%>%
+  summarize(visits=n_distinct(visitdate),
+            first=min(visitdate),
+            last=max(visitdate))%>%
+  mutate(followup=time_length(interval(start=first,end=last,tzone="Etc/GMT-5"),unit="months"),
+         followup2=as.period(interval(start=first,end=last,tzone="Etc/GMT-5"),unit="months"))%>%
+  summarize(no.part=n(), # total subjects
+            mean.visit=mean(visits),
+            sd.visit=sd(visits),
+            min.visit=min(visits),
+            max.visit=max(visits),
+            mean.follow=mean(followup),
+            sd.follow=sd(followup),
+            max.follow=max(followup),
+            min.follow=min(followup))%>%
+  bind_cols(datamult%>%summarize(tot.visit=n()))%>% # total visits
+  #### follow up by time frame ####
+  bind_rows(datamult%>%
+              group_by(id2)%>%
+              summarize(visits=max(n_distinct(visitdate)), # total subjects
+                        first=min(visitdate),
+                        last=max(visitdate))%>%
+              mutate(followup=time_length(interval(start=first,end=last,tzone="Etc/GMT-5"),
+                                          unit="months"),
+                     followup2=as.period(interval(start=first,end=last,tzone="Etc/GMT-5"),
+                                         unit="months"),
+                     time=str_extract(id2,".{3}$"))%>%
+              group_by(time)%>%
+              summarize(no.part=n(), # total visits
+                        mean.visit=mean(visits),
+                        sd.visit=sd(visits),
+                        min.visit=min(visits),
+                        max.visit=max(visits),
+                        mean.follow=mean(followup),
+                        sd.follow=sd(followup),
+                        max.follow=max(followup),
+                        min.follow=min(followup))%>%
+              bind_cols(datamult%>%group_by(time)%>%summarize(tot.visit=n())))%>% # total visits
+  mutate(var=c("Overall","2010-2018","2004-2009"),
+         range.visit=paste0("[",min.visit,", ",max.visit,"]"),
+         range.follow=paste0("[",round(min.follow,2),", ",round(max.follow,2),"]"," (~",round(max.follow/12,1)," years)"),
+         mean.follow=paste0(round(mean.follow,2)," (~",round(mean.follow/12,1)," years)"),
+         sd.follow=paste0(round(sd.follow,2)," (~",round(sd.follow/12,1)," years)"),
+         order=c(1,3,2))%>%
+  arrange(order)%>%
+  select(var,no.part,tot.visit,mean.visit,sd.visit,range.visit,mean.follow,sd.follow,range.follow)
+
+#### Formatting ####
+
+# Adding footnote symbols
+followup[2,1]<-paste(followup[2,1],footnote_marker_symbol(1))
+followup[3,1]<-paste(followup[3,1],footnote_marker_symbol(1))
+
+followup%>%
+  mutate(no.part=prettyNum(no.part,big.mark=","),
+         tot.visit=prettyNum(tot.visit,big.mark=","))%>%
+  kable(booktabs=T,digits=2, caption="Summary of Follow-Up",
+        escape=F, col.names=c(" ","No. Subjects","Tot. Visits","Ave. Visits","SD Visits","Range No. Visits",
+                              "Ave Follow-up Months","SD Follow-up Months",
+                              "Range Follow-up Months"))%>%
+          kable_styling(latex_options=c("HOLD_position","scale_down"),position="center")%>%
+  footnote(symbol="Determined from the visits that contributed to the estimates for the specified time period. Some individual participants have visits in, and thus are included in, both time periods.",
+           threeparttable=T)%>%
+  column_spec(2:6,width="1cm")%>%
+  column_spec(7:8,width="3cm")%>%
+  column_spec(9,width="4cm")%>%
+  column_spec(1,width="2cm")%>%
+  row_spec(0,align="c")
+
+```
+
+# Table 1
+
+# Weighting
+
+# Modelling
+
+# Mapping
